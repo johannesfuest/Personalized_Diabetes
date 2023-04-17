@@ -1,0 +1,14 @@
+name: cs230
+channels:
+  - conda-forge
+dependencies:
+  - pandas
+  - numpy
+  - plotly
+  - python
+  - scikit-learn
+  - scipy=1.10.0
+  - statsmodels
+  - tensorflow
+  - notebook
+  - black
