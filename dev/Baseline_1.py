@@ -103,8 +103,8 @@ def get_model():
 
     model = tf.keras.Model(inputs=input, outputs=output)
     return model
-
-mses = []
+mses_train = []
+mses_test = []
 
 for i in range(1,31):
     CSV_INPUT = f'dev/df_final_{i}.csv'
@@ -155,7 +155,7 @@ for i in range(1,31):
     #save plot
     plt.savefig(f'train_{i}.png')
     plt.show()
-
+    mses_train.append(mean_squared_error(Y_train, preds_train))
     # plot test predictions against actual test values
     plt.scatter(Y_test, preds_test)
     plt.xlabel('True Values [Glucose]')
@@ -167,7 +167,8 @@ for i in range(1,31):
     plt.savefig(f'test_{i}.png')
     plt.show()
     #print mse
-    mses.append(mean_squared_error(Y_test, preds_test))
+    mses_test.append(mean_squared_error(Y_test, preds_test))
     print(f'MSE {i} : {mean_squared_error(Y_test, preds_test)}')
-print(mses)
-print(np.mean(mses))
+
+print(mses_test)
+print(np.mean(mses_test))
