@@ -13,3 +13,5 @@ dependencies:
   - notebook
   - black
   - matplotlib
+  - python-kaleido
+  - gitpython
