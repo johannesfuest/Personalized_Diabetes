@@ -39,29 +39,49 @@ def hypo_metric(y_true, y_pred):
 # In order to avoid code duplication, create a custom "ConvLayer" that will be created four times.
 # See Figure 1 in milestone report.
 class ConvLayer(tf.keras.layers.Layer):
+    # constructor method, initializing the object's attributes
     def __init__(self):
         super(ConvLayer, self).__init__()
         self.conv1 = tfl.Conv1D(filters=3, kernel_size=5, strides=1, padding='valid')
+        # 1st Normalization
+        self.norm1 = tfl.BatchNormalization(axis = 2) # axis = 2 refers to the dimension of the channels, so norm. along the channels
         self.pool1 = tfl.MaxPool1D(pool_size=2, strides=2, padding='valid')
+        # add 1st dropout
+        self.drop1 = tfl.Dropout(rate = 0.25)
         self.conv2 = tfl.Conv1D(filters=6, kernel_size=5, strides=1, padding='valid')
+        # 2nd Normalization
+        self.norm2 = tfl.BatchNormalization(axis = 2)
         self.pool2 = tfl.MaxPool1D(pool_size=6, strides=4, padding='valid')
+        # add 2nd dropout
+        self.drop2 = tfl.Dropout(rate = 0.25)
         self.flatten = tfl.Flatten()
 
     def build(self, input_shape):
         pass
 
+    # invoked every time the layer is called
     def call(self, input):
         assert input.shape[1] == CONV_INPUT_LENGTH
         # 1st CONV
         conv1_out = self.conv1(input)
+        # 1st NORM
+        norm1_out = self.norm1(conv1_out)
         # Max Pool
-        pool1_out = self.pool1(conv1_out)
+        pool1_out = self.pool1(norm1_out)
+        # add 1st dropout
+        drop1_out = self.drop1(pool1_out)
         # 2nd CONV
-        conv2_out = self.conv2(pool1_out)
+        conv2_out = self.conv2(drop1_out)
+        # 2nd NORM
+        norm2_out = self.norm2(conv2_out)
         # Max Pool
-        pool2_out = self.pool2(conv2_out)
+        pool2_out = self.pool2(norm2_out)
+        # add 2nd dropout
+        drop2_out = self.drop2(pool2_out)
+        # add 2nd dropout 
+        
         # Now flatten the Matrix into a 1D vector (shape 1x204)
-        flatten_out = self.flatten(pool2_out)
+        flatten_out = self.flatten(drop2_out)
 
         return flatten_out
 
@@ -137,6 +157,7 @@ for i in range(1,31):
                        loss='mse',
                        metrics=['mse', hypo_metric, hyper_metric])
     conv_model.summary()
+    print(conv_model.summary())
     # Create train and test datasets
     train_dataset = tf.data.Dataset.from_tensor_slices((X_train, Y_train)).batch(MINIBATCH_SIZE)
     test_dataset = tf.data.Dataset.from_tensor_slices((X_test, Y_test)).batch(MINIBATCH_SIZE)
