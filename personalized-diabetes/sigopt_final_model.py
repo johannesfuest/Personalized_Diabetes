@@ -1,0 +1,1 @@
+# Python file for running baseline 1 (individualization, self-supervised data, double pretraining) using sigopt
