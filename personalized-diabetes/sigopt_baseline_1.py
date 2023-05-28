@@ -25,12 +25,12 @@ def load_data(split:float, data_missingness:float):
 def load_data_train_model(run, data, CONV_INPUT_LENGTH):
     run.log_dataset(name=DATASET)
     X_train, X_test, Y_train, Y_test = data
-    print('error happens pre model creation')
+
     # create the model
     model = \
         sf.GlucoseModel(CONV_INPUT_LENGTH, False, run)
     run.log_model("Baseline 1")
-
+    print('error happens pre model creation')
     # train the model
     model.train_model(run.params.num_epochs, X_train, X_test, Y_train, Y_test,
                       run.params.learning_rate, run.params.batch_size)
