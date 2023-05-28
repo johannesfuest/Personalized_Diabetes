@@ -138,7 +138,7 @@ if __name__ == '__main__':
             ])
         ],
         parallel_bandwidth=1,
-        budget=10,
+        budget=1000,
     )
     for run in experiment.loop():
         with run:
