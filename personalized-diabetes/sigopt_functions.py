@@ -17,17 +17,19 @@ class GlucoseLoss(tf.keras.losses.Loss):
         pass
 
 class ConvLayer(tf.keras.layers.Layer):
-    def __init__(self, CONV_INPUT_LENGTH: int, dropout_rate=0.25):
+    def __init__(self, CONV_INPUT_LENGTH: int, run):
         super(ConvLayer, self).__init__()
         self.CONV_INPUT_LENGTH = CONV_INPUT_LENGTH
-        self.conv1 = tfl.Conv1D(filters=3, kernel_size=5, strides=1, padding='valid')
-        self.norm1 = tfl.BatchNormalization(axis=2, use_bias=False)
-        self.pool1 = tfl.MaxPool1D(pool_size=2, strides=2, padding='valid')
-        self.drop1 = tfl.Dropout(rate=dropout_rate)
-        self.conv2 = tfl.Conv1D(filters=6, kernel_size=5, strides=1, padding='valid')
-        self.norm2 = tfl.BatchNormalization(axis=2, use_bias=False)
-        self.pool2 = tfl.MaxPool1D(pool_size=6, strides=4, padding='valid')
-        self.drop2 = tfl.Dropout(rate=dropout_rate)
+        self.conv1 = tfl.Conv1D(filters=run.params.filter_1, kernel_size=run.params.kernel_1,
+                                strides=run.params.stride_1, padding='valid', use_bias=False)
+        self.norm1 = tfl.BatchNormalization(axis=2)
+        self.pool1 = tfl.MaxPool1D(pool_size=run.params.pool_size_1, strides=run.params.pool_stride_1, padding='valid')
+        self.drop1 = tfl.Dropout(rate=run.params.dropout_rate)
+        self.conv2 = tfl.Conv1D(filters=run.params.filter_2, kernel_size=run.params.kernel_2,
+                                strides=run.params.stride_2, padding='valid', use_bias=False)
+        self.norm2 = tfl.BatchNormalization(axis=2)
+        self.pool2 = tfl.MaxPool1D(pool_size=run.params.pool_size_2, strides=run.params.pool_stride_2, padding='valid')
+        self.drop2 = tfl.Dropout(rate=run.params.dropout_rate)
         self.flatten = tfl.Flatten()
 
     def build(self, input_shape):
@@ -56,7 +58,7 @@ class ConvLayer(tf.keras.layers.Layer):
         return flatten_out
 
 class GlucoseModel():
-    def get_model(self, CONV_INPUT_LENGTH: int, ACTIVATION_FUNCTION: str, self_sup: bool, dropout_rate:float = 0.25):
+    def get_model(self, CONV_INPUT_LENGTH: int, self_sup: bool):
         # define the input with specified shape
         input = tf.keras.Input(shape=(CONV_INPUT_LENGTH * 4, 1), batch_size=None)
         # Calculate batchsize of current run.
@@ -69,26 +71,23 @@ class GlucoseModel():
         excercise_input = tf.slice(input, begin=[0, CONV_INPUT_LENGTH * 3, 0], size=[batch_size, CONV_INPUT_LENGTH, 1])
 
         # Create the four custom conv-layers
-        diabetes_conv = ConvLayer(CONV_INPUT_LENGTH, dropout_rate)(diabetes_input)
-        meal_conv = ConvLayer(CONV_INPUT_LENGTH, dropout_rate)(meal_input)
-        smbg_conv = ConvLayer(CONV_INPUT_LENGTH, dropout_rate)(smbg_input)
-        excercise_conv = ConvLayer(CONV_INPUT_LENGTH, dropout_rate)(excercise_input)
+        diabetes_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(diabetes_input)
+        meal_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(meal_input)
+        smbg_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(smbg_input)
+        excercise_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(excercise_input)
 
         # Concat the result of conv-layers
         post_conv = tf.concat([diabetes_conv, meal_conv, smbg_conv, excercise_conv], axis=1, name='post_conv')
 
-        # Sanity check: Make sure that the shapes are as expected.
-        assert post_conv.shape[1] == 204 * 4, 'Shape mismatch after conv layers'
-
         # Now fully connect layers
         # Use multiples of two as recommended in class.
-        FC1 = tfl.Dense(units=512, activation=ACTIVATION_FUNCTION)(post_conv)
-        DR1 = tfl.Dropout(rate=dropout_rate)(FC1)
-        FC2 = tfl.Dense(units=256, activation=ACTIVATION_FUNCTION)(DR1)
-        DR2 = tfl.Dropout(rate=dropout_rate)(FC2)
-        FC3 = tfl.Dense(units=128, activation=ACTIVATION_FUNCTION)(DR2)
-        DR3 = tfl.Dropout(rate=dropout_rate)(FC3)
-        FC4 = tfl.Dense(units=64, activation=ACTIVATION_FUNCTION)(DR3)
+        FC1 = tfl.Dense(units=512, activation=self.run.params.activation)(post_conv)
+        DR1 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC1)
+        FC2 = tfl.Dense(units=256, activation=self.run.params.activation)(DR1)
+        DR2 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC2)
+        FC3 = tfl.Dense(units=128, activation=self.run.params.activation)(DR2)
+        DR3 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC3)
+        FC4 = tfl.Dense(units=64, activation=self.run.params.activation)(DR3)
 
         # The output does NOT have an activation (regression task)
         # Last layer has 4*CONV_INPUT_LENGTH units if self-supervised, else 1 unit.
@@ -99,12 +98,9 @@ class GlucoseModel():
 
         model = tf.keras.Model(inputs=input, outputs=output)
         return model
-    def __init__(self, CONV_INPUT_LENGTH: int, ACTIVATION_FUNCTION: str, self_sup: bool, dropout_rate=0.25):
-        self.CONV_INPUT_LENGTH = CONV_INPUT_LENGTH
-        self.ACTIVATION_FUNCTION = ACTIVATION_FUNCTION
-        self.self_sup = self_sup
-        self.dropout_rate = dropout_rate
-        self.model = self.get_model(self.CONV_INPUT_LENGTH, self.ACTIVATION_FUNCTION, self.self_sup, self.dropout_rate)
+    def __init__(self, CONV_INPUT_LENGTH: int, self_sup: bool, run):
+        self.run = run
+        self.model = self.get_model(CONV_INPUT_LENGTH, self_sup)
 
 
     def train_model(self, epochs, X_train, X_test, Y_train, Y_test, lr, batch_size):
@@ -125,7 +121,7 @@ class GlucoseModel():
         # Compile model - use mse for now.
         self.model.compile(optimizer=adam_optimizer,
                       loss=gMSE,
-                      metrics=[gMSE, 'mse'])
+                      metrics=['mse'])
         # Create train and test datasets
         train_dataset = tf.data.Dataset.from_tensor_slices((X_train, Y_train)).batch(batch_size)
         test_dataset = tf.data.Dataset.from_tensor_slices((X_test, Y_test)).batch(batch_size)
@@ -141,8 +137,8 @@ class GlucoseModel():
         :return: The loss and mse of the model on the given data
         """
         # Evaluate model
-        loss, mse = self.model.evaluate(X_test, Y_test, verbose=0)
-        return loss, mse
+        metrics = self.model.evaluate(X_test, Y_test, verbose=0)
+        return metrics
 
     def activate_finetune_mode(self):
         # Create new output layer which uses output of before-last layer as input
@@ -201,6 +197,12 @@ def get_train_test_split_all(df, TRAIN_TEST_SPLIT:float, self_sup:bool):
     X_test.drop(columns=['DeidentID'], inplace=True)
     return X_train, X_test, Y_train, Y_test
 
+def get_train_test_split_search(df, TRAIN_TEST_SPLIT:float, self_sup:bool):
+    # keep only the first TRAIN_TEST_SPLIT * 100 rows of df
+    n = int (TRAIN_TEST_SPLIT * 100 * len(df))
+    df = df.head(n)
+    return get_train_test_split_all(df, TRAIN_TEST_SPLIT, self_sup)
+
 def apply_data_missingness (df, missingness: float):
     if missingness == 0.0:
         return df
@@ -228,16 +230,16 @@ def xi(x, a, epsilon):
 def sigmoid(x, a, epsilon):
     XI = xi(x, a, epsilon)
     #print(XI)
-    return np.where(
+    return tf.where(
         x<=a,
-        0,
-        np.where(
+        0.0,
+        tf.where(
             x <= a + epsilon/2,
             -1/2 *  (XI**4) - (XI**3) + XI + 1/2,
-            np.where(
+            tf.where(
                 x <= a + epsilon,
                 1/2 * XI**4 - XI**3 + XI + 1/2,
-                1
+                1.0
             )
         )
     )
@@ -249,22 +251,22 @@ def xi_bar(x, a, epsilon):
 def sigmoid_bar(x, a, epsilon):
     XI = xi_bar(x, a, epsilon)
     #print(XI)
-    return np.where(
+    return tf.where(
         x<=a-epsilon,
-        1,
-        np.where(
+        1.0,
+        tf.where(
             x <= a - epsilon/2,
             1/2 *  (XI**4) - (XI**3) + XI + 1/2,
-            np.where(
+            tf.where(
                 x <= a ,
                 -1/2 * XI**4 - XI**3 + XI + 1/2,
-                0
+                0.0
             )
         )
     )
 
 
-alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H = 1.5, 1, 30, 100, 10, 20, 85, 155
+alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H = 1.5, 1.0, 30.0, 100.0, 10.0, 20.0, 85.0, 155.0
 
 
 def Pen(g, g_hat, alpha_L=alpha_L, alpha_H=alpha_H, beta_L=beta_L, beta_H=beta_H, gamma_L=gamma_L, gamma_H=gamma_H,
@@ -276,28 +278,20 @@ def Pen(g, g_hat, alpha_L=alpha_L, alpha_H=alpha_H, beta_L=beta_L, beta_H=beta_H
 
 def gSE(g, g_hat, alpha_L=alpha_L, alpha_H=alpha_H, beta_L=beta_L, beta_H=beta_H, gamma_L=gamma_L, gamma_H=gamma_H,
         t_L=t_L, t_H=t_H):
-    return np.square(g - g_hat) * Pen(g, g_hat, alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H)
+    return tf.math.square(tf.cast(g, tf.float32) - g_hat) * Pen(tf.cast(g, tf.float32), g_hat, alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H)
 
 
 def gMSE(g, g_hat, alpha_L=alpha_L, alpha_H=alpha_H, beta_L=beta_L, beta_H=beta_H, gamma_L=gamma_L, gamma_H=gamma_H,
          t_L=t_L, t_H=t_H):
-    np.mean(gSE(g, g_hat, alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H))
+    return tf.math.reduce_mean(gSE(g, g_hat, alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H))
 
 
 if __name__ == '__main__':
-    #train, test = prepare_experiment(indiv=False, epochs=10, missingness=0.1, self_sup=False)
-    df = pd.read_csv('basic_0.csv')
-    print(len(df))
-    #print(train)
-    #print(np.mean(train))
-    #print(test)
-    #print(np.mean(test))
+    print('stop being red')
+    #TODO: ensure dfs are sorted properly
     #TODO: discuss batch norm in FC layers -> ask Peter
-    #TODO: discuss self-supervised learning reduction only to new predictors
-    #TODO: Format everything nicely for SigOpt (one load_data/train_model func per model?) -> baseline 1 first from start to finish, Johannes will build rest
-    #TODO: Rerun data gen code to generate dfs
     #TODO: Go over data visualization Functions (check naming convention and titles, etc.)
-    #TODO: Set up for AWS (to GPU etc.)
+    #TODO: Think about modelling justification
     #TODO: Merge all to main
     #TODO: Run Grid Search for each Model
     #TODO: Run Experiments for each Model

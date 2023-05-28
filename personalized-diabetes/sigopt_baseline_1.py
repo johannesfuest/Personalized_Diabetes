@@ -1,14 +1,17 @@
+# Python file for running baseline 1 (no individualization, no self-supervised data) using sigopt
 import pandas as pd
 import sigopt_functions as sf
 import sigopt
 import git
 import os
 import tensorflow as tf
+
+
 os.environ["SIGOPT_API_TOKEN"] = "CDLCFJJUWDYYKMDCXOISTWNALSSWLQQGBJHEBNVKXFQMFWNE"
 os.environ["SIGOPT_PROJECT"] = "personalized-diabetes"
-
-# Python file for running baseline 1 (no individualization, no self-supervised data) using sigopt
 DATASET = 'basic_0.csv'
+
+
 def load_data(split:float, data_missingness:float):
     df_basic = pd.read_csv(DATASET)
     print('data read')
@@ -16,7 +19,7 @@ def load_data(split:float, data_missingness:float):
     df_basic = sf.apply_data_missingness(df_basic, data_missingness)
 
     X_train, X_test, Y_train, Y_test = \
-        sf.get_train_test_split(df_basic, split, False)
+        sf.get_train_test_split_search(df_basic, split, False)
     return X_train, X_test, Y_train, Y_test
 
 def load_data_train_model(run, data, CONV_INPUT_LENGTH):

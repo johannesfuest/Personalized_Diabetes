@@ -144,7 +144,6 @@ if __name__ == '__main__':
     for table in list(result_tables.keys())[1:]:
         res_df = res_df.merge(result_tables[table], on=['DeidentID', 'LocalDtTm'], how='outer', suffixes=('', f'_{table}'))
         res_df.rename(columns={'covered': f'covered_{table}'}, inplace=True)
-    res_df
 
     covered_cols = [x for x in res_df.columns if 'covered' in x]
     res_df['all_covered'] = res_df[covered_cols].fillna(False).all(axis=1)
@@ -197,6 +196,7 @@ if __name__ == '__main__':
         df_final['LocalDtTm'] = df_MonitorCGM_filtered['LocalDtTm']
         df_final['CGM'] = df_MonitorCGM_filtered['CGM']
         df_final['LocalDtTm'] = pd.to_datetime(df_final['LocalDtTm'])
+
         print('starting insulin calculation')
         new_df_insuline = df_final['LocalDtTm'].progress_apply(
             lambda x: pd.Series(get_24_hour_bins(df_Insulin_agg, x, 'insulin')))

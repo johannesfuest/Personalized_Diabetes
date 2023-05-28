@@ -31,7 +31,7 @@ def save_self_sup(df, patient):
     df.to_csv(f'self_{patient}.csv', index=False)
 def test_get_self_sup_df():
     # test get_self_sup_df
-    for i in range(0, 1):
+    for i in range(1, 31):
         df = pd.read_csv(os.path.join('..', 'personalized-diabetes', f'basic_{i}.csv'))
         len_pre = len(df)
         df = df.sort_values('LocalDtTm')
