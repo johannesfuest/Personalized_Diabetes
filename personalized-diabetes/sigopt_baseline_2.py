@@ -16,8 +16,12 @@ DATASET_SELF = "self_0.csv"
 def load_data(split: float, data_missingness: float):
     # read in df_self but only read in every 4th row
     df_self = pd.read_csv(DATASET_SELF, skiprows=lambda i: i % 4 != 0)
+
+    #sample to 1000 random rows
+    df_self = df_self.sample(n=1000, random_state=1)
     print(f"Self supervised data read with shape {df_self.shape}")
     df_basic = pd.read_csv(DATASET, skiprows=lambda i: i % 2 != 0)
+    df_basic = df_basic.sample(n=1000, random_state=1)
     print(f"Basic data read with shape {df_basic.shape}")
 
     # delete a fraction of the df rows according to data_missingness
@@ -79,7 +83,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
             Y_train_self,
             Y_test_self,
             run.params.learning_rate_1,
-            run.params.batch_size_1,
+            run.params.batch_size_1, True
         )
         # supervised training
         model.activate_finetune_mode()
@@ -91,9 +95,11 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
             Y_test,
             run.params.learning_rate_2,
             run.params.batch_size_2,
+            False
         )
         train_loss, train_mse = model.evaluate_model(X_train, Y_train)
         test_loss, test_mse = model.evaluate_model(X_test, Y_test)
+        print(test_loss)
     # log performance metrics
     run.log_metric("train gMSE", train_loss)
     run.log_metric("train MSE", train_mse)
