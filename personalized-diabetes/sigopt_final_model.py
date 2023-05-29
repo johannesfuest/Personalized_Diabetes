@@ -41,11 +41,19 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
     test_gmses = []
     run.log_model("Final Model")
     run.log_metadata("sgd optimizer", "adam")
+    x_train_temp = X_train
+    x_test_temp = X_test
+    y_train_temp = Y_train
+    y_test_temp = Y_test
+    x_train_temp = x_train_temp.drop(columns = ['DeidentID'])
+    x_test_temp = x_test_temp.drop(columns = ['DeidentID'])
+    y_train_temp = y_train_temp.drop(columns = ['DeidentID'])
+    y_test_temp = y_test_temp.drop(columns = ['DeidentID'])
     with tf.device('/device:GPU:0'):
         base_model = \
                 sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
         # pretrain the model on all patient data
-        base_model.train_model(run.params.num_epochs_0, X_train_self, X_test_self, Y_train_self, Y_test_self,
+        base_model.train_model(run.params.num_epochs_0,x_train_temp, x_test_temp, y_train_temp, y_test_temp,
                           run.params.learning_rate_0, run.params.batch_size_0, True)
     for i in range(1, 31):
         with tf.device('/device:GPU:0'):
