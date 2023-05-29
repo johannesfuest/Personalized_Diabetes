@@ -120,7 +120,7 @@ if __name__ == '__main__':
                 dict(name='pool_stride_1', weight=-1)
             ])
         ],
-        parallel_bandwidth=1,
+        parallel_bandwidth=3,
         budget=1000,
     )
     for run in experiment.loop():
