@@ -39,6 +39,11 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         x_test = X_test[X_test['DeidentID'] == i]
         y_train = Y_train[Y_train['DeidentID'] == i]
         y_test = Y_test[Y_test['DeidentID'] == i]
+        #drop the deidentID column
+        x_train = x_train.drop(columns=['DeidentID'])
+        x_test = x_test.drop(columns=['DeidentID'])
+        y_train = y_train.drop(columns=['DeidentID'])
+        y_test = y_test.drop(columns=['DeidentID'])
         # train the model
         model.train_model(run.params.num_epochs, x_train, x_test, y_train, y_test,
                           run.params.learning_rate, run.params.batch_size)
