@@ -119,7 +119,7 @@ class GlucoseModel():
         # TODO add optional gMSE loss function
         # Compile model - use mse for now.
         self.model.compile(optimizer=adam_optimizer,
-                      loss=gMSE,
+                      loss='mse',
                       metrics=['mse'])
         # Create train and test datasets
         train_dataset = tf.data.Dataset.from_tensor_slices((X_train, Y_train)).batch(batch_size)
