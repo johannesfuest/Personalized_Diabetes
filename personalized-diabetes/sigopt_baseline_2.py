@@ -30,6 +30,10 @@ def load_data(split:float, data_missingness:float):
     X_test.drop(columns=['DeidentID'], inplace=True)
     Y_train.drop(columns=['DeidentID'], inplace=True)
     Y_test.drop(columns=['DeidentID'], inplace=True)
+    X_train_self.drop(columns=['DeidentID'], inplace=True)
+    X_test_self.drop(columns=['DeidentID'], inplace=True)
+    Y_train_self.drop(columns=['DeidentID'], inplace=True)
+    Y_test_self.drop(columns=['DeidentID'], inplace=True)
     return X_train, X_test, Y_train, Y_test, X_train_self, X_test_self, Y_train_self, Y_test_self
 
 def load_data_train_model(run, data, CONV_INPUT_LENGTH):
