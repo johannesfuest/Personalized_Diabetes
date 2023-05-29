@@ -44,14 +44,14 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
             sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
         # pretrain the model on all patient data
         model.train_model(run.params.num_epochs_0, X_train_self, X_test_self, Y_train_self, Y_test_self,
-                          run.params.learning_rate_0, run.params.batch_size_0)
+                          run.params.learning_rate_0, run.params.batch_size_0, True)
         x_train = X_train_self[X_train_self['DeidentID'] == i]
         x_test = X_test_self[X_test_self['DeidentID'] == i]
         y_train = Y_train_self[Y_train_self['DeidentID'] == i]
         y_test = Y_test_self[Y_test_self['DeidentID'] == i]
         # self-supervised training
         model.train_model(run.params.num_epochs_1, x_train, x_test, y_train, y_test,
-                          run.params.learning_rate_1, run.params.batch_size_1)
+                          run.params.learning_rate_1, run.params.batch_size_1, True)
         # individualization
         model.activate_finetune_mode()
         x_train = X_train[X_train['DeidentID'] == i]
@@ -59,7 +59,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         y_train = Y_train[Y_train['DeidentID'] == i]
         y_test = Y_test[Y_test['DeidentID'] == i]
         model.train_model(run.params.num_epochs_2, x_train, x_test, y_train, y_test,
-                            run.params.learning_rate_2, run.params.batch_size_2)
+                            run.params.learning_rate_2, run.params.batch_size_2, False)
         # evaluate the model
         train_mse, train_gme = model.evaluate_model(x_train, y_train)
         test_mse, test_gme = model.evaluate_model(x_test, y_test)

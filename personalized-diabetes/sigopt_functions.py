@@ -146,7 +146,7 @@ class GlucoseModel:
         self.run = run
         self.model = self.get_model(CONV_INPUT_LENGTH, self_sup)
 
-    def train_model(self, epochs, X_train, X_test, Y_train, Y_test, lr, batch_size):
+    def train_model(self, epochs, X_train, X_test, Y_train, Y_test, lr, batch_size, self_sup: bool):
         """
         A function that trains the given model on the given data.
         :param epochs: The number of epochs we want to train for
@@ -160,9 +160,11 @@ class GlucoseModel:
         """
         # Create optimizer (Adam with specified learning rate - use default parameters otherwise. )
         adam_optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
-        # TODO add optional gMSE loss function
-        # Compile model - use mse for now.
-        self.model.compile(optimizer=adam_optimizer, loss=gMSE, metrics=["mse"])
+        # Compile model
+        if self_sup:
+            self.model.compile(optimizer=adam_optimizer, loss="mse", metrics=["mse"])
+        else:
+            self.model.compile(optimizer=adam_optimizer, loss=gMSE, metrics=["mse"])
         # Create train and test datasets
         train_dataset = tf.data.Dataset.from_tensor_slices((X_train, Y_train)).batch(
             batch_size
