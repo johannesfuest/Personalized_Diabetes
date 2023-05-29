@@ -86,7 +86,7 @@ if __name__ == '__main__':
     data = load_data(0.8, 0.0)
     repo = git.Repo(search_parent_directories=True)
     sha = repo.head.object.hexsha
-    tf.debugging.set_log_device_placement(True)
+    #tf.debugging.set_log_device_placement(True)
     experiment = sigopt.create_experiment(
         name="Baseline_1_experiment",
         type="offline",
