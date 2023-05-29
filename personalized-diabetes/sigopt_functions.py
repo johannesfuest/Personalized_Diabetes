@@ -193,8 +193,8 @@ def get_train_test_split_all(df, TRAIN_TEST_SPLIT:float, self_sup:bool):
         Y_train = pd.concat([Y_train, Y_train_temp])
         X_test = pd.concat([X_test, X_test_temp])
         Y_test = pd.concat([Y_test, Y_test_temp])
-    X_train.drop(columns=['DeidentID'], inplace=True)
-    X_test.drop(columns=['DeidentID'], inplace=True)
+    #X_train.drop(columns=['DeidentID'], inplace=True)
+    #X_test.drop(columns=['DeidentID'], inplace=True)
     return X_train, X_test, Y_train, Y_test
 
 def get_train_test_split_search(df, TRAIN_TEST_SPLIT:float, self_sup:bool):
