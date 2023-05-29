@@ -9,6 +9,7 @@ import tensorflow as tf
 
 os.environ["SIGOPT_API_TOKEN"] = "CDLCFJJUWDYYKMDCXOISTWNALSSWLQQGBJHEBNVKXFQMFWNE"
 os.environ["SIGOPT_PROJECT"] = "personalized-diabetes"
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 DATASET = 'basic_0.csv'
 
 
