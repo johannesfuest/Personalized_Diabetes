@@ -34,8 +34,10 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
     run.log_metadata("sgd optimizer", "adam")
     for i in range(1, 31):
         # create the model
-        model = \
-            sf.GlucoseModel(CONV_INPUT_LENGTH, False, run)
+        with tf.device('/GPU:0'):
+            model = \
+                sf.GlucoseModel(CONV_INPUT_LENGTH, False, run)
+            print(model)
         x_train = X_train[X_train['DeidentID'] == i]
         x_test = X_test[X_test['DeidentID'] == i]
         y_train = Y_train[Y_train['DeidentID'] == i]
@@ -46,8 +48,9 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         y_train = y_train.drop(columns=['DeidentID'])
         y_test = y_test.drop(columns=['DeidentID'])
         # train the model
-        model.train_model(run.params.num_epochs, x_train, x_test, y_train, y_test,
-                          run.params.learning_rate, run.params.batch_size)
+        with tf.device('/GPU:0'):
+            model.train_model(run.params.num_epochs, x_train, x_test, y_train, y_test,
+                              run.params.learning_rate, run.params.batch_size)
         # evaluate the model
         train_mse, train_gme = model.evaluate_model(x_train, y_train)
         test_mse, test_gme = model.evaluate_model(x_test, y_test)
@@ -83,6 +86,7 @@ if __name__ == '__main__':
     data = load_data(0.8, 0.0)
     repo = git.Repo(search_parent_directories=True)
     sha = repo.head.object.hexsha
+    tf.debugging.set_log_device_placement(True)
     experiment = sigopt.create_experiment(
         name="Baseline_1_experiment",
         type="offline",
