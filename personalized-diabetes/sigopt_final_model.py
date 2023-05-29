@@ -39,17 +39,28 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
     test_gmses = []
     run.log_model("Final Model")
     run.log_metadata("sgd optimizer", "adam")
-    for i in range(1, 31):
-        # create the model
-        model = \
-            sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
+    with tf.device('/device:GPU:0'):
+        base_model = \
+                sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
         # pretrain the model on all patient data
-        model.train_model(run.params.num_epochs_0, X_train_self, X_test_self, Y_train_self, Y_test_self,
+        base_model.train_model(run.params.num_epochs_0, X_train_self, X_test_self, Y_train_self, Y_test_self,
                           run.params.learning_rate_0, run.params.batch_size_0, True)
+    for i in range(1, 31):
+        with tf.device('/device:GPU:0'):
+            model = tf.keras.models.clone_model(base_model.model)
+            model.set_weights(base_model.model.get_weights())
+
+            # Compile the cloned model (required before it can be used)
+            model.compile(optimizer='adam', loss='mse')
+        # create the model
         x_train = X_train_self[X_train_self['DeidentID'] == i]
         x_test = X_test_self[X_test_self['DeidentID'] == i]
         y_train = Y_train_self[Y_train_self['DeidentID'] == i]
         y_test = Y_test_self[Y_test_self['DeidentID'] == i]
+        x_train = x_train.drop(columns=['DeidentID'])
+        x_test = x_test.drop(columns=['DeidentID'])
+        y_train = y_train.drop(columns=['DeidentID'])
+        y_test = y_test.drop(columns=['DeidentID'])
         # self-supervised training
         model.train_model(run.params.num_epochs_1, x_train, x_test, y_train, y_test,
                           run.params.learning_rate_1, run.params.batch_size_1, True)
@@ -59,6 +70,10 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         x_test = X_test[X_test['DeidentID'] == i]
         y_train = Y_train[Y_train['DeidentID'] == i]
         y_test = Y_test[Y_test['DeidentID'] == i]
+        x_train = x_train.drop(columns=['DeidentID'])
+        x_test = x_test.drop(columns=['DeidentID'])
+        y_train = y_train.drop(columns=['DeidentID'])
+        y_test = y_test.drop(columns=['DeidentID'])
         model.train_model(run.params.num_epochs_2, x_train, x_test, y_train, y_test,
                             run.params.learning_rate_2, run.params.batch_size_2, False)
         # evaluate the model
