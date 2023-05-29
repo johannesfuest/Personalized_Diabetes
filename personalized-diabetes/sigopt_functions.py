@@ -177,9 +177,9 @@ def get_train_test_split(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
             Y_test = Y_test.drop(columns=[f'insulin {i}', f'mealsize {i}', f'carbs {i}', f'exercise {i}'])
     else:
         X_train = train.drop(columns=['LocalDtTm', 'CGM'])
-        Y_train = train[['CGM']]
+        Y_train = train[['CGM', 'DeidentID']]
         X_test = test.drop(columns=['LocalDtTm', 'CGM'])
-        Y_test = test[['CGM']]
+        Y_test = test[['CGM', 'DeidentID']]
     return X_train, X_test, Y_train, Y_test
 
 def get_train_test_split_all(df, TRAIN_TEST_SPLIT:float, self_sup:bool):
