@@ -9,7 +9,7 @@ import tensorflow as tf
 
 os.environ["SIGOPT_API_TOKEN"] = "CDLCFJJUWDYYKMDCXOISTWNALSSWLQQGBJHEBNVKXFQMFWNE"
 os.environ["SIGOPT_PROJECT"] = "personalized-diabetes"
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 DATASET = 'basic_0.csv'
 
 
@@ -45,11 +45,6 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
 
 
 if __name__ == '__main__':
-    # stop tensorflow from using up over 50% of ram on the gpu
-    gpu_devices = tf.config.experimental.list_physical_devices('GPU')
-    for device in gpu_devices:
-        tf.config.experimental.set_memory_growth(device, True)
-
 
     CONV_INPUT_LENGTH = 288
     data = load_data(0.8, 0.0)
