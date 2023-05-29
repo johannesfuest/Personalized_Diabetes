@@ -46,17 +46,6 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
 
 if __name__ == '__main__':
 
-    gpus = tf.config.list_physical_devices('GPU')
-    if gpus:
-        try:
-            # Restrict TensorFlow to only use the first GPU
-            tf.config.experimental.set_visible_devices(gpus[0], 'GPU')
-
-            # Configure TensorFlow to limit the amount of memory used
-            tf.config.experimental.set_memory_growth(gpus[0], True)
-        except RuntimeError as e:
-            # Visible devices must be set before GPUs have been initialized
-            print(e)
 
     CONV_INPUT_LENGTH = 288
     data = load_data(0.8, 0.0)
