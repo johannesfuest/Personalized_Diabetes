@@ -61,41 +61,40 @@ class GlucoseModel():
     def get_model(self, CONV_INPUT_LENGTH: int, self_sup: bool):
         # define the input with specified shape
         input = tf.keras.Input(shape=(CONV_INPUT_LENGTH * 4, 1), batch_size=None)
-        # # Calculate batchsize of current run.
-        # batch_size = tf.shape(input)[0]
-        # # Slice the data into four equally sized 1D-chunks for CNN.
-        # diabetes_input = tf.slice(input, begin=[0, CONV_INPUT_LENGTH * 0, 0], size=[batch_size, CONV_INPUT_LENGTH, 1],
-        #                           name='diabetes_input')
-        # meal_input = tf.slice(input, begin=[0, CONV_INPUT_LENGTH * 1, 0], size=[batch_size, CONV_INPUT_LENGTH, 1])
-        # smbg_input = tf.slice(input, begin=[0, CONV_INPUT_LENGTH * 2, 0], size=[batch_size, CONV_INPUT_LENGTH, 1])
-        # excercise_input = tf.slice(input, begin=[0, CONV_INPUT_LENGTH * 3, 0], size=[batch_size, CONV_INPUT_LENGTH, 1])
-        #
-        # # Create the four custom conv-layers
-        # diabetes_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(diabetes_input)
-        # meal_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(meal_input)
-        # smbg_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(smbg_input)
-        # excercise_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(excercise_input)
-        # 
-        # # Concat the result of conv-layers
-        # post_conv = tf.concat([diabetes_conv, meal_conv, smbg_conv, excercise_conv], axis=1, name='post_conv')
-        #
-        # # Now fully connect layers
-        # # Use multiples of two as recommended in class.
-        # FC1 = tfl.Dense(units=512, activation=self.run.params.activation)(post_conv)
-        # DR1 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC1)
-        # FC2 = tfl.Dense(units=256, activation=self.run.params.activation)(DR1)
-        # DR2 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC2)
-        # FC3 = tfl.Dense(units=128, activation=self.run.params.activation)(DR2)
-        # DR3 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC3)
-        # FC4 = tfl.Dense(units=64, activation=self.run.params.activation)(DR3)
-        #
-        # # The output does NOT have an activation (regression task)
-        # # Last layer has 4*CONV_INPUT_LENGTH units if self-supervised, else 1 unit.
-        # if self_sup:
-        #     output = tfl.Dense(units=4 * CONV_INPUT_LENGTH, activation=None)(FC4)
-        # else:
-        #     output = tfl.Dense(units=1, activation=None)(FC4)
-        output = tfl.Dense(units=1, activation=None)(input)
+        # Calculate batchsize of current run.
+        batch_size = tf.shape(input)[0]
+        # Slice the data into four equally sized 1D-chunks for CNN.
+        diabetes_input = tf.slice(input, begin=[0, CONV_INPUT_LENGTH * 0, 0], size=[batch_size, CONV_INPUT_LENGTH, 1],
+                                  name='diabetes_input')
+        meal_input = tf.slice(input, begin=[0, CONV_INPUT_LENGTH * 1, 0], size=[batch_size, CONV_INPUT_LENGTH, 1])
+        smbg_input = tf.slice(input, begin=[0, CONV_INPUT_LENGTH * 2, 0], size=[batch_size, CONV_INPUT_LENGTH, 1])
+        excercise_input = tf.slice(input, begin=[0, CONV_INPUT_LENGTH * 3, 0], size=[batch_size, CONV_INPUT_LENGTH, 1])
+
+        # Create the four custom conv-layers
+        diabetes_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(diabetes_input)
+        meal_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(meal_input)
+        smbg_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(smbg_input)
+        excercise_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(excercise_input)
+
+        # Concat the result of conv-layers
+        post_conv = tf.concat([diabetes_conv, meal_conv, smbg_conv, excercise_conv], axis=1, name='post_conv')
+
+        # Now fully connect layers
+        # Use multiples of two as recommended in class.
+        FC1 = tfl.Dense(units=512, activation=self.run.params.activation)(post_conv)
+        DR1 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC1)
+        FC2 = tfl.Dense(units=256, activation=self.run.params.activation)(DR1)
+        DR2 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC2)
+        FC3 = tfl.Dense(units=128, activation=self.run.params.activation)(DR2)
+        DR3 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC3)
+        FC4 = tfl.Dense(units=64, activation=self.run.params.activation)(DR3)
+
+        # The output does NOT have an activation (regression task)
+        # Last layer has 4*CONV_INPUT_LENGTH units if self-supervised, else 1 unit.
+        if self_sup:
+            output = tfl.Dense(units=4 * CONV_INPUT_LENGTH, activation=None)(FC4)
+        else:
+            output = tfl.Dense(units=1, activation=None)(FC4)
         model = tf.keras.Model(inputs=input, outputs=output)
         return model
     def __init__(self, CONV_INPUT_LENGTH: int, self_sup: bool, run):
@@ -126,8 +125,9 @@ class GlucoseModel():
         train_dataset = tf.data.Dataset.from_tensor_slices((X_train, Y_train)).batch(batch_size)
         test_dataset = tf.data.Dataset.from_tensor_slices((X_test, Y_test)).batch(batch_size)
         # Let's run this!
+        print("Training model...")
         self.model.fit(train_dataset, epochs=epochs, validation_data=test_dataset, verbose=0)
-
+        print("Done training model.")
     def evaluate_model(self, X_test, Y_test):
         """
         A function that evaluates the model on the given data.
