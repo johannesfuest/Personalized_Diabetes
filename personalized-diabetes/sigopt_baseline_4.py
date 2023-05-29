@@ -16,9 +16,9 @@ DATASET_SELF = "self_0.csv"
 
 
 def load_data(split: float, data_missingness: float):
-    df_basic = pd.read_csv(DATASET)
+    df_self = pd.read_csv(DATASET_SELF, skiprows=lambda i: i % 4 != 0)
     print("Basic data read")
-    df_self = pd.read_csv(DATASET_SELF)
+    df_basic = pd.read_csv(DATASET, skiprows=lambda i: i % 2 != 0)
 
     df_basic = df_basic.sample(n=1000, random_state=1)
 

@@ -15,9 +15,10 @@ DATASET = 'basic_0.csv'
 DATASET_SELF = 'self_0.csv'
 
 def load_data(split:float, data_missingness:float):
-    df_basic = pd.read_csv(DATASET)
+
+    df_basic = pd.read_csv(DATASET, skiprows=lambda i: i % 2 != 0)
     print('Basic data read')
-    df_self = pd.read_csv(DATASET_SELF)
+    df_self = pd.read_csv(DATASET_SELF, skiprows=lambda i: i % 4 != 0)
     print('Self data read')
     # delete a fraction of the df rows according to data_missingness
     df_basic = sf.apply_data_missingness(df_basic, data_missingness)
