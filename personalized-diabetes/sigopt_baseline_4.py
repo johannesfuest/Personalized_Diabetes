@@ -19,6 +19,10 @@ def load_data(split: float, data_missingness: float):
     df_basic = pd.read_csv(DATASET)
     print("Basic data read")
     df_self = pd.read_csv(DATASET_SELF)
+
+    df_basic = df_basic.sample(n=1000, random_state=1)
+
+    df_self = df_self.sample(n=1000, random_state=1)
     print("Self data read")
     # delete a fraction of the df rows according to data_missingness
     df_basic = sf.apply_data_missingness(df_basic, data_missingness)
