@@ -37,7 +37,6 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         with tf.device('/GPU:0'):
             model = \
                 sf.GlucoseModel(CONV_INPUT_LENGTH, False, run)
-            print(model)
         x_train = X_train[X_train['DeidentID'] == i]
         x_test = X_test[X_test['DeidentID'] == i]
         y_train = Y_train[Y_train['DeidentID'] == i]
@@ -86,23 +85,22 @@ if __name__ == '__main__':
     data = load_data(0.8, 0.0)
     repo = git.Repo(search_parent_directories=True)
     sha = repo.head.object.hexsha
-    #tf.debugging.set_log_device_placement(True)
     experiment = sigopt.create_experiment(
-        name="Baseline_1_experiment",
+        name="Baseline_3_grid_search",
         type="offline",
         parameters=[
             dict(name="activation", type="categorical", categorical_values=["relu", "tanh"]),
             dict(name="dropout_rate", type="double", bounds=dict(min=0.0, max=0.5)),
             dict(name="learning_rate", type="double", bounds=dict(min=0.00001, max=0.01)),
-            dict(name='num_epochs', type="int", bounds=dict(min=1, max = 15)),
-            dict(name='batch_size', type = "int", bounds=dict(min=64, max=512)),
+            dict(name='num_epochs', type="int", bounds=dict(min=1, max = 10)),
+            dict(name='batch_size', type = "int", bounds=dict(min=32, max=32)),
             dict(name='filter_1', type = "int", bounds=dict(min=1, max=10)),
             dict(name='kernel_1', type="int", bounds=dict(min=5, max=10)),
             dict(name='stride_1', type="int", bounds=dict(min=1, max=2)),
             dict(name='pool_size_1', type="int", bounds=dict(min=1, max=3)),
             dict(name='pool_stride_1', type="int", bounds=dict(min=1, max=2)),
             dict(name='filter_2', type="int", bounds=dict(min=1, max=5)),
-            dict(name='kernel_2', type="int", bounds=dict(min=1, max=5)),
+            dict(name='kernel_2', type="int", bounds=dict(min=2, max=5)),
             dict(name='stride_2', type="int", bounds=dict(min=1, max=2)),
             dict(name='pool_size_2', type="int", bounds=dict(min=1, max=2)),
             dict(name='pool_stride_2', type="int", bounds=dict(min=1, max=2)),
@@ -127,7 +125,7 @@ if __name__ == '__main__':
             ])
         ],
         parallel_bandwidth=3,
-        budget=1000,
+        budget=100,
     )
     for run in experiment.loop():
         with run:

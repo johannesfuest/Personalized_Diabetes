@@ -9,7 +9,6 @@ import tensorflow as tf
 
 os.environ["SIGOPT_API_TOKEN"] = "CDLCFJJUWDYYKMDCXOISTWNALSSWLQQGBJHEBNVKXFQMFWNE"
 os.environ["SIGOPT_PROJECT"] = "personalized-diabetes"
-#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 DATASET = 'basic_0.csv'
 
 
@@ -26,14 +25,20 @@ def load_data(split:float, data_missingness:float):
 def load_data_train_model(run, data, CONV_INPUT_LENGTH):
     run.log_dataset(name=DATASET)
     X_train, X_test, Y_train, Y_test = data
+    X_train.drop(columns=['DeidentID'], inplace=True)
+    X_test.drop(columns=['DeidentID'], inplace=True)
+    Y_train.drop(columns=['DeidentID'], inplace=True)
+    Y_test.drop(columns=['DeidentID'], inplace=True)
 
     # create the model
-    model = \
-        sf.GlucoseModel(CONV_INPUT_LENGTH, False, run)
+    with tf.device('/GPU:0'):
+        model = \
+            sf.GlucoseModel(CONV_INPUT_LENGTH, False, run)
     run.log_model("Baseline 1")
     # train the model
-    model.train_model(run.params.num_epochs, X_train, X_test, Y_train, Y_test,
-                      run.params.learning_rate, run.params.batch_size)
+    with tf.device('/GPU:0'):
+        model.train_model(run.params.num_epochs, X_train, X_test, Y_train, Y_test,
+                          run.params.learning_rate, run.params.batch_size)
     run.log_metadata("sgd optimizer", "adam")
     train_loss, train_mse = model.evaluate_model(X_train, Y_train)
     test_loss, test_mse = model.evaluate_model(X_test, Y_test)
@@ -58,15 +63,15 @@ if __name__ == '__main__':
             dict(name="activation", type="categorical", categorical_values=["relu", "tanh"]),
             dict(name="dropout_rate", type="double", bounds=dict(min=0.0, max=0.5)),
             dict(name="learning_rate", type="double", bounds=dict(min=0.00001, max=0.01)),
-            dict(name='num_epochs', type="int", bounds=dict(min=1, max = 20)),
-            dict(name='batch_size', type = "int", bounds=dict(min=2, max=4)),
+            dict(name='num_epochs', type="int", bounds=dict(min=1, max = 10)),
+            dict(name='batch_size', type = "int", bounds=dict(min=32, max=32)),
             dict(name='filter_1', type = "int", bounds=dict(min=1, max=10)),
             dict(name='kernel_1', type="int", bounds=dict(min=5, max=10)),
             dict(name='stride_1', type="int", bounds=dict(min=1, max=2)),
             dict(name='pool_size_1', type="int", bounds=dict(min=1, max=3)),
             dict(name='pool_stride_1', type="int", bounds=dict(min=1, max=2)),
             dict(name='filter_2', type="int", bounds=dict(min=1, max=5)),
-            dict(name='kernel_2', type="int", bounds=dict(min=1, max=5)),
+            dict(name='kernel_2', type="int", bounds=dict(min=2, max=5)),
             dict(name='stride_2', type="int", bounds=dict(min=1, max=2)),
             dict(name='pool_size_2', type="int", bounds=dict(min=1, max=2)),
             dict(name='pool_stride_2', type="int", bounds=dict(min=1, max=2)),
@@ -91,7 +96,7 @@ if __name__ == '__main__':
             ])
         ],
         parallel_bandwidth=1,
-        budget=1000,
+        budget=100,
     )
     for run in experiment.loop():
         with run:
