@@ -78,6 +78,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
             y_test,
             run.params.learning_rate_1,
             run.params.batch_size_1,
+            True
         )
         # individualization
         model.activate_finetune_mode()
@@ -93,6 +94,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
             y_test,
             run.params.learning_rate_2,
             run.params.batch_size_2,
+            False
         )
         # evaluate the model
         train_mse, train_gme = model.evaluate_model(x_train, y_train)
