@@ -17,20 +17,19 @@ def load_data(split:float, data_missingness:float):
     print('data read')
     # delete a fraction of the df rows according to data_missingness
     df_basic = sf.apply_data_missingness(df_basic, data_missingness)
-    df_basic = df_basic.iloc[::10, :]
+    df_basic = df_basic.iloc[::2, :]
 
     X_train, X_test, Y_train, Y_test = \
         sf.get_train_test_split_search(df_basic, split, False)
+    X_train.drop(columns=['DeidentID'], inplace=True)
+    X_test.drop(columns=['DeidentID'], inplace=True)
+    Y_train.drop(columns=['DeidentID'], inplace=True)
+    Y_test.drop(columns=['DeidentID'], inplace=True)
     return X_train, X_test, Y_train, Y_test
 
 def load_data_train_model(run, data, CONV_INPUT_LENGTH):
     run.log_dataset(name=DATASET)
     X_train, X_test, Y_train, Y_test = data
-    X_train.drop(columns=['DeidentID'], inplace=True)
-    X_test.drop(columns=['DeidentID'], inplace=True)
-    Y_train.drop(columns=['DeidentID'], inplace=True)
-    Y_test.drop(columns=['DeidentID'], inplace=True)
-
     # create the model
     with tf.device('/GPU:0'):
         model = \
