@@ -31,7 +31,6 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
     model = \
         sf.GlucoseModel(CONV_INPUT_LENGTH, False, run)
     run.log_model("Baseline 1")
-    print('error happens pre model creation')
     # train the model
     model.train_model(run.params.num_epochs, X_train, X_test, Y_train, Y_test,
                       run.params.learning_rate, run.params.batch_size)
@@ -46,6 +45,9 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
 
 
 if __name__ == '__main__':
+    gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+    for device in gpu_devices:
+        tf.config.experimental.set_memory_growth(device, True)
     CONV_INPUT_LENGTH = 288
     data = load_data(0.8, 0.0)
     repo = git.Repo(search_parent_directories=True)
