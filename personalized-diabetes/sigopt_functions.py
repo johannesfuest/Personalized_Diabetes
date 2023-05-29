@@ -309,8 +309,8 @@ def sigmoid(x, a, epsilon):
     one = tf.constant(1.0, dtype=tf.float32)
     two = tf.constant(2, dtype=tf.float32)
     epsilon_over_two = tf.math.divide(epsilon, two)
-    calc = tf.math.add(tf.math.add(tf.math.negative(tf.math.pow(XI, three)), XI), half)
     three = tf.constant(3, dtype=tf.float32)
+    calc = tf.math.add(tf.math.add(tf.math.negative(tf.math.pow(XI, three)), XI), half)
     four = tf.constant(4, dtype=tf.float32)
 
     term1 = tf.math.add(
