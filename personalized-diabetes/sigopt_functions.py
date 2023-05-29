@@ -309,12 +309,14 @@ def sigmoid(x, a, epsilon):
     one = tf.constant(1.0, dtype=tf.float32)
     two = tf.constant(2, dtype=tf.float32)
     epsilon_over_two = tf.math.divide(epsilon, two)
-    calc = tf.math.add(tf.math.add(tf.math.negative(tf.math.pow(XI, 3)), XI), half)
+    calc = tf.math.add(tf.math.add(tf.math.negative(tf.math.pow(XI, three)), XI), half)
+    three = tf.constant(3, dtype=tf.int32)
+    four = tf.constant(4, dtype=tf.int32)
 
     term1 = tf.math.add(
-        tf.math.multiply(tf.math.negative(half), tf.math.pow(XI, 4)), calc
+        tf.math.multiply(tf.math.negative(half), tf.math.pow(XI, four)), calc
     )
-    term2 = tf.math.add(tf.math.multiply(half, tf.math.pow(XI, 4)), calc)
+    term2 = tf.math.add(tf.math.multiply(half, tf.math.pow(XI, four)), calc)
 
     return tf.where(
         tf.less_equal(x, a),
@@ -343,14 +345,16 @@ def sigmoid_bar(x, a, epsilon):
     half = tf.constant(0.5, dtype=tf.float32)
     one = tf.constant(1.0, dtype=tf.float32)
     two = tf.constant(2, dtype=tf.float32)
+    three = tf.constant(3, dtype=tf.int32)
+    four = tf.constant(4, dtype=tf.int32)
     epsilon_over_two = tf.math.divide(epsilon, two)
     calc = tf.math.add(
-        tf.math.add(tf.math.negative(tf.math.pow(XI_BAR, 3)), XI_BAR), half
+        tf.math.add(tf.math.negative(tf.math.pow(XI_BAR, three)), XI_BAR), half
     )
     term1 = tf.math.add(
-        tf.math.multiply(tf.math.negative(half), tf.math.pow(XI_BAR, 4)), calc
+        tf.math.multiply(tf.math.negative(half), tf.math.pow(XI_BAR, four)), calc
     )
-    term2 = tf.math.add(tf.math.multiply(half, tf.math.pow(XI_BAR, 4)), calc)
+    term2 = tf.math.add(tf.math.multiply(half, tf.math.pow(XI_BAR, four)), calc)
 
     # print(XI)
     return tf.where(
