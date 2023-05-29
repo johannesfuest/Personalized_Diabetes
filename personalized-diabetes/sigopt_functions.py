@@ -223,62 +223,112 @@ def apply_data_missingness (df, missingness: float):
 
 
 def xi(x, a, epsilon):
-    return 2/epsilon * (x-a-epsilon/2)
+    two = tf.constant(2, dtype=tf.float32)
+    two_over_epsilon = tf.math.divide(two, epsilon)
+    a_plus_epsilon_over_two = tf.math.add(a, tf.math.divide(epsilon, two))
+    return tf.multiply(two_over_epsilon, tf.math.subtract(x, a_plus_epsilon_over_two))
+    #return 2/epsilon * (x-a-epsilon/2)
 
 
-# corrected
+# # corrected
+# def sigmoid(x, a, epsilon):
+#     XI = xi(x, a, epsilon)
+#     #print(XI)
+#     return tf.where(
+#         x<=a,
+#         0.0,
+#         tf.where(
+#             x <= a + epsilon/2,
+#             -1/2 *  (XI**4) - (XI**3) + XI + 1/2,
+#             tf.where(
+#                 x <= a + epsilon,
+#                 1/2 * XI**4 - XI**3 + XI + 1/2,
+#                 1.0
+#             )
+#         )
+#     )
+
 def sigmoid(x, a, epsilon):
     XI = xi(x, a, epsilon)
-    #print(XI)
+    zero = tf.constant(0.0, dtype=tf.float32)
+    half = tf.constant(0.5, dtype=tf.float32)
+    one = tf.constant(1.0, dtype=tf.float32)
+    two = tf.constant(2, dtype=tf.float32)
+    epsilon_over_two = tf.math.divide(epsilon, two)
+    calc = tf.math.add(tf.math.add(tf.math.pow(XI, 3), XI ),half)
+
+    term1 = tf.math.subtract(tf.math.multiply(-half, tf.math.pow(XI, 4)), calc)
+    term2 = tf.math.subtract(tf.math.multiply( half, tf.math.pow(XI, 4)), calc)
+    
     return tf.where(
-        x<=a,
-        0.0,
+        tf.less_equal(x, a),
+        zero,
         tf.where(
-            x <= a + epsilon/2,
-            -1/2 *  (XI**4) - (XI**3) + XI + 1/2,
+            tf.less_equal(x, tf.math.add(a, epsilon_over_two)),
+            term1,
             tf.where(
-                x <= a + epsilon,
-                1/2 * XI**4 - XI**3 + XI + 1/2,
-                1.0
+                tf.less_equal(x, tf.math.add(a, epsilon)),
+                term2,
+                one
             )
         )
     )
 
 def xi_bar(x, a, epsilon):
-    return -2/epsilon * (x-a+epsilon/2)
+    minus_two = tf.constant(-2, dtype=tf.float32)
+    m_two_over_epsilon = tf.math.divide(minus_two, epsilon)
+    a_plus_epsilon_over_m_two = tf.math.add(a, tf.math.divide(epsilon, minus_two))
+    return tf.multiply(m_two_over_epsilon, tf.math.subtract(x, a_plus_epsilon_over_m_two))
+    #return -2/epsilon * (x-a+epsilon/2)
 
 
 def sigmoid_bar(x, a, epsilon):
-    XI = xi_bar(x, a, epsilon)
+    XI_BAR = xi_bar(x, a, epsilon)
+    zero = tf.constant(0.0, dtype=tf.float32)
+    half = tf.constant(0.5, dtype=tf.float32)
+    one = tf.constant(1.0, dtype=tf.float32)
+    two = tf.constant(2, dtype=tf.float32)
+    epsilon_over_two = tf.math.divide(epsilon, two)
+    calc = tf.math.add(tf.math.add(tf.math.pow(XI_BAR, 3), XI_BAR ),half)
+    term1 = tf.math.subtract(tf.math.multiply(-half, tf.math.pow(XI_BAR, 4)), calc)
+    term2 = tf.math.subtract(tf.math.multiply( half, tf.math.pow(XI_BAR, 4)), calc)
+
     #print(XI)
     return tf.where(
-        x<=a-epsilon,
-        1.0,
+        tf.less_equal(x, tf.math.subtract(a,epsilon)),
+        one,
         tf.where(
-            x <= a - epsilon/2,
-            1/2 *  (XI**4) - (XI**3) + XI + 1/2,
+            tf.math.less_equal(x,  tf.math.subtract(a,  epsilon_over_two)),
+            term2,
             tf.where(
-                x <= a ,
-                -1/2 * XI**4 - XI**3 + XI + 1/2,
-                0.0
+                tf.math.less_equal(x, a) ,
+                term1,
+                zero
             )
         )
     )
 
 
-alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H = 1.5, 1.0, 30.0, 100.0, 10.0, 20.0, 85.0, 155.0
+alpha_L  = tf.constant(1.5, dtype=tf.float32)
+alpha_H  = tf.constant(1.0, dtype=tf.float32)
+beta_L   = tf.constant(30.0, dtype=tf.float32)
+beta_H   = tf.constant(100.0, dtype=tf.float32)
+gamma_L  = tf.constant(10.0, dtype=tf.float32)
+gamma_H  = tf.constant(20.0, dtype=tf.float32)
+t_L      = tf.constant(85.0, dtype=tf.float32)
+t_H      = tf.constant(155.0, dtype=tf.float32)
+
 
 
 def Pen(g, g_hat, alpha_L=alpha_L, alpha_H=alpha_H, beta_L=beta_L, beta_H=beta_H, gamma_L=gamma_L, gamma_H=gamma_H,
         t_L=t_L, t_H=t_H):
-    return 1 + alpha_L * sigmoid_bar(g, t_L, beta_L) * sigmoid(g_hat, g,
-                                                               gamma_L) + alpha_H * sigmoid(
-        g, t_H, beta_H) * sigmoid_bar(g_hat, g, gamma_H)
+    one = tf.constant(1.0, dtype=tf.float32)
+    return tf.math.add(one, tf.math.add( tf.math.multiply(alpha_L, tf.math.multiply(sigmoid_bar(g, t_L, beta_L), sigmoid(g_hat, g, gamma_L))), tf.math.multiply(alpha_H, tf.math.multiply(sigmoid(g, t_H, beta_H), sigmoid_bar(g_hat, g, gamma_H)))))
 
 
 def gSE(g, g_hat, alpha_L=alpha_L, alpha_H=alpha_H, beta_L=beta_L, beta_H=beta_H, gamma_L=gamma_L, gamma_H=gamma_H,
         t_L=t_L, t_H=t_H):
-    return tf.math.square(tf.cast(g, tf.float32) - g_hat) * Pen(tf.cast(g, tf.float32), g_hat, alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H)
+    return tf.math.multiply(tf.math.square(tf.subtract(tf.cast(g, tf.float32), g_hat)), Pen(tf.cast(g, tf.float32), g_hat, alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H))
 
 
 def gMSE(g, g_hat, alpha_L=alpha_L, alpha_H=alpha_H, beta_L=beta_L, beta_H=beta_H, gamma_L=gamma_L, gamma_H=gamma_H,
