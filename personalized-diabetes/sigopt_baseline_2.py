@@ -16,9 +16,9 @@ DATASET_SELF = 'self_0.csv'
 def load_data(split:float, data_missingness:float):
     # read in df_self but only read in every 4th row
     df_self = pd.read_csv(DATASET_SELF, skiprows=lambda i: i % 4 != 0)
-    print('Self supervised data read')
+    print(f'Self supervised data read with shape {df_self.shape}')
     df_basic = pd.read_csv(DATASET, skiprows=lambda i: i % 2 != 0)
-    print('Basic data read')
+    print(f'Basic data read with shape {df_basic.shape}')
 
     # delete a fraction of the df rows according to data_missingness
     df_basic = sf.apply_data_missingness(df_basic, data_missingness)
