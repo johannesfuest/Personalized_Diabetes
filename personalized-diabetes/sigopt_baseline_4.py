@@ -5,6 +5,7 @@ import sigopt
 import git
 import os
 import tensorflow as tf
+import argparse
 
 
 os.environ["SIGOPT_API_TOKEN"] = "CDLCFJJUWDYYKMDCXOISTWNALSSWLQQGBJHEBNVKXFQMFWNE"
@@ -127,11 +128,18 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
 
 if __name__ == "__main__":
     CONV_INPUT_LENGTH = 288
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--name', type=str, help='Specify an experiment name')
+    args = parser.parse_args()
+    name = args.name
+    if not name:
+        name=''
+
     data = load_data(0.8, 0.0)
     repo = git.Repo(search_parent_directories=True)
     sha = repo.head.object.hexsha
     experiment = sigopt.create_experiment(
-        name="Baseline_1_experiment",
+        name=f"Baseline_4_{name}",
         type="offline",
         parameters=[
             dict(
