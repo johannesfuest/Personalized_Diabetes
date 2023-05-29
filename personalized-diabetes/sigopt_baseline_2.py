@@ -14,13 +14,12 @@ DATASET_SELF = 'self_0.csv'
 
 
 def load_data(split:float, data_missingness:float):
+    df_self = pd.read_csv(DATASET_SELF)
+    df_self = df_self.iloc[::4, :]
+    print('Self supervised data read')
     df_basic = pd.read_csv(DATASET)
     print('Basic data read')
-    df_self = pd.read_csv(DATASET_SELF)
-    print('Self supervised data read')
-    # Keep only every 10th row of dataframe
     df_basic = df_basic.iloc[::2, :]
-    df_self = df_self.iloc[::4, :]
     print('Self supervised data downsampled')
 
     # delete a fraction of the df rows according to data_missingness
