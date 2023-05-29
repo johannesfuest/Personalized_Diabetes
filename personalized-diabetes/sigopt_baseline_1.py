@@ -10,7 +10,7 @@ import tensorflow as tf
 os.environ["SIGOPT_API_TOKEN"] = "CDLCFJJUWDYYKMDCXOISTWNALSSWLQQGBJHEBNVKXFQMFWNE"
 os.environ["SIGOPT_PROJECT"] = "personalized-diabetes"
 #os.environ['CUDA_VISIBLE_DEVICES'] ="0"
-DATASET = 'basic_30.csv'
+DATASET = 'basic_0.csv'
 
 
 def load_data(split:float, data_missingness:float):
