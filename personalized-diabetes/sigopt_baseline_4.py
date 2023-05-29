@@ -74,6 +74,10 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         x_test = X_test_self[X_test_self["DeidentID"] == i]
         y_train = Y_train_self[Y_train_self["DeidentID"] == i]
         y_test = Y_test_self[Y_test_self["DeidentID"] == i]
+        x_train = x_train.drop(columns=["DeidentID"])
+        x_test = x_test.drop(columns=["DeidentID"])
+        y_train = y_train.drop(columns=["DeidentID"])
+        y_test = y_test.drop(columns=["DeidentID"])
         # self-supervised training
         model.train_model(
             run.params.num_epochs_1,
@@ -91,6 +95,10 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         x_test = X_test[X_test["DeidentID"] == i]
         y_train = Y_train[Y_train["DeidentID"] == i]
         y_test = Y_test[Y_test["DeidentID"] == i]
+        x_train = x_train.drop(columns=["DeidentID"])
+        x_test = x_test.drop(columns=["DeidentID"])
+        y_train = y_train.drop(columns=["DeidentID"])
+        y_test = y_test.drop(columns=["DeidentID"])
         model.train_model(
             run.params.num_epochs_2,
             x_train,
