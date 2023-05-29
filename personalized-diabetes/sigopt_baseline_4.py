@@ -9,6 +9,7 @@ import tensorflow as tf
 
 os.environ["SIGOPT_API_TOKEN"] = "CDLCFJJUWDYYKMDCXOISTWNALSSWLQQGBJHEBNVKXFQMFWNE"
 os.environ["SIGOPT_PROJECT"] = "personalized-diabetes"
+#os.environ['CUDA_VISIBLE_DEVICES'] ="0"
 DATASET = 'basic_0.csv'
 DATASET_SELF = 'self_0.csv'
 
@@ -96,11 +97,11 @@ if __name__ == '__main__':
             dict(name="activation", type="categorical", categorical_values=["relu", "tanh"]),
             dict(name="dropout_rate", type="double", bounds=dict(min=0.0, max=0.5)),
             dict(name="learning_rate_1", type="double", bounds=dict(min=0.00001, max=0.01)),
-            dict(name='num_epochs_1', type="int", bounds=dict(min=0, max = 50)),
-            dict(name='batch_size_1', type = "int", bounds=dict(min=8, max=256)),
+            dict(name='num_epochs_1', type="int", bounds=dict(min=1, max = 15)),
+            dict(name='batch_size_1', type = "int", bounds=dict(min=2, max=32)),
             dict(name="learning_rate_2", type="double", bounds=dict(min=0.00001, max=0.01)),
-            dict(name='num_epochs_2', type="int", bounds=dict(min=0, max=50)),
-            dict(name='batch_size_2', type="int", bounds=dict(min=8, max=256)),
+            dict(name='num_epochs_2', type="int", bounds=dict(min=1, max=15)),
+            dict(name='batch_size_2', type="int", bounds=dict(min=2, max=32)),
             dict(name='filter_1', type = "int", bounds=dict(min=1, max=10)),
             dict(name='kernel_1', type="int", bounds=dict(min=5, max=10)),
             dict(name='stride_1', type="int", bounds=dict(min=1, max=2)),
