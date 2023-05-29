@@ -26,11 +26,16 @@ def load_data(split:float, data_missingness:float):
     X_train, X_test, Y_train, Y_test = \
         sf.get_train_test_split_search(df_basic, split, False)
     X_train_self, X_test_self, Y_train_self, Y_test_self = sf.get_train_test_split_search(df_self, split, True)
+    X_train.drop(columns=['DeidentID'], inplace=True)
+    X_test.drop(columns=['DeidentID'], inplace=True)
+    Y_train.drop(columns=['DeidentID'], inplace=True)
+    Y_test.drop(columns=['DeidentID'], inplace=True)
     return X_train, X_test, Y_train, Y_test, X_train_self, X_test_self, Y_train_self, Y_test_self
 
 def load_data_train_model(run, data, CONV_INPUT_LENGTH):
     run.log_dataset(name=DATASET)
     X_train, X_test, Y_train, Y_test, X_train_self, X_test_self, Y_train_self, Y_test_self = data
+
 
     # create the model
     with tf.device('/device:GPU:0'):
