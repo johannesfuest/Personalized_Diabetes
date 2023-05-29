@@ -1,13 +1,17 @@
 import sys
-sys.path.append('..')
+
+sys.path.append("..")
 import pandas as pd
 import tensorflow.keras.layers as tfl
 import tensorflow as tf
-pd.set_option('display.max_rows', 1000)
+
+pd.set_option("display.max_rows", 1000)
 import warnings
 import random
 import numpy as np
-warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
+
+warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
+
 
 class GlucoseLoss(tf.keras.losses.Loss):
     def __init__(self):
@@ -16,19 +20,38 @@ class GlucoseLoss(tf.keras.losses.Loss):
     def call(self, y_true, y_pred):
         pass
 
+
 class ConvLayer(tf.keras.layers.Layer):
     def __init__(self, CONV_INPUT_LENGTH: int, run):
         super(ConvLayer, self).__init__()
         self.CONV_INPUT_LENGTH = CONV_INPUT_LENGTH
-        self.conv1 = tfl.Conv1D(filters=run.params.filter_1, kernel_size=run.params.kernel_1,
-                                strides=run.params.stride_1, padding='valid', use_bias=False)
+        self.conv1 = tfl.Conv1D(
+            filters=run.params.filter_1,
+            kernel_size=run.params.kernel_1,
+            strides=run.params.stride_1,
+            padding="valid",
+            use_bias=False,
+        )
         self.norm1 = tfl.BatchNormalization(axis=2)
-        self.pool1 = tfl.MaxPool1D(pool_size=run.params.pool_size_1, strides=run.params.pool_stride_1, padding='valid')
+        self.pool1 = tfl.MaxPool1D(
+            pool_size=run.params.pool_size_1,
+            strides=run.params.pool_stride_1,
+            padding="valid",
+        )
         self.drop1 = tfl.Dropout(rate=run.params.dropout_rate)
-        self.conv2 = tfl.Conv1D(filters=run.params.filter_2, kernel_size=run.params.kernel_2,
-                                strides=run.params.stride_2, padding='valid', use_bias=False)
+        self.conv2 = tfl.Conv1D(
+            filters=run.params.filter_2,
+            kernel_size=run.params.kernel_2,
+            strides=run.params.stride_2,
+            padding="valid",
+            use_bias=False,
+        )
         self.norm2 = tfl.BatchNormalization(axis=2)
-        self.pool2 = tfl.MaxPool1D(pool_size=run.params.pool_size_2, strides=run.params.pool_stride_2, padding='valid')
+        self.pool2 = tfl.MaxPool1D(
+            pool_size=run.params.pool_size_2,
+            strides=run.params.pool_stride_2,
+            padding="valid",
+        )
         self.drop2 = tfl.Dropout(rate=run.params.dropout_rate)
         self.flatten = tfl.Flatten()
 
@@ -57,18 +80,35 @@ class ConvLayer(tf.keras.layers.Layer):
         flatten_out = self.flatten(drop2_out)
         return flatten_out
 
-class GlucoseModel():
+
+class GlucoseModel:
     def get_model(self, CONV_INPUT_LENGTH: int, self_sup: bool):
         # define the input with specified shape
         input = tf.keras.Input(shape=(CONV_INPUT_LENGTH * 4, 1), batch_size=None)
         # Calculate batchsize of current run.
         batch_size = tf.shape(input)[0]
         # Slice the data into four equally sized 1D-chunks for CNN.
-        diabetes_input = tf.slice(input, begin=[0, CONV_INPUT_LENGTH * 0, 0], size=[batch_size, CONV_INPUT_LENGTH, 1],
-                                  name='diabetes_input')
-        meal_input = tf.slice(input, begin=[0, CONV_INPUT_LENGTH * 1, 0], size=[batch_size, CONV_INPUT_LENGTH, 1])
-        smbg_input = tf.slice(input, begin=[0, CONV_INPUT_LENGTH * 2, 0], size=[batch_size, CONV_INPUT_LENGTH, 1])
-        excercise_input = tf.slice(input, begin=[0, CONV_INPUT_LENGTH * 3, 0], size=[batch_size, CONV_INPUT_LENGTH, 1])
+        diabetes_input = tf.slice(
+            input,
+            begin=[0, CONV_INPUT_LENGTH * 0, 0],
+            size=[batch_size, CONV_INPUT_LENGTH, 1],
+            name="diabetes_input",
+        )
+        meal_input = tf.slice(
+            input,
+            begin=[0, CONV_INPUT_LENGTH * 1, 0],
+            size=[batch_size, CONV_INPUT_LENGTH, 1],
+        )
+        smbg_input = tf.slice(
+            input,
+            begin=[0, CONV_INPUT_LENGTH * 2, 0],
+            size=[batch_size, CONV_INPUT_LENGTH, 1],
+        )
+        excercise_input = tf.slice(
+            input,
+            begin=[0, CONV_INPUT_LENGTH * 3, 0],
+            size=[batch_size, CONV_INPUT_LENGTH, 1],
+        )
 
         # Create the four custom conv-layers
         diabetes_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(diabetes_input)
@@ -77,7 +117,11 @@ class GlucoseModel():
         excercise_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(excercise_input)
 
         # Concat the result of conv-layers
-        post_conv = tf.concat([diabetes_conv, meal_conv, smbg_conv, excercise_conv], axis=1, name='post_conv')
+        post_conv = tf.concat(
+            [diabetes_conv, meal_conv, smbg_conv, excercise_conv],
+            axis=1,
+            name="post_conv",
+        )
 
         # Now fully connect layers
         # Use multiples of two as recommended in class.
@@ -97,10 +141,10 @@ class GlucoseModel():
             output = tfl.Dense(units=1, activation=None)(FC4)
         model = tf.keras.Model(inputs=input, outputs=output)
         return model
+
     def __init__(self, CONV_INPUT_LENGTH: int, self_sup: bool, run):
         self.run = run
         self.model = self.get_model(CONV_INPUT_LENGTH, self_sup)
-
 
     def train_model(self, epochs, X_train, X_test, Y_train, Y_test, lr, batch_size):
         """
@@ -118,16 +162,21 @@ class GlucoseModel():
         adam_optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
         # TODO add optional gMSE loss function
         # Compile model - use mse for now.
-        self.model.compile(optimizer=adam_optimizer,
-                      loss=gMSE,
-                      metrics=['mse'])
+        self.model.compile(optimizer=adam_optimizer, loss=gMSE, metrics=["mse"])
         # Create train and test datasets
-        train_dataset = tf.data.Dataset.from_tensor_slices((X_train, Y_train)).batch(batch_size)
-        test_dataset = tf.data.Dataset.from_tensor_slices((X_test, Y_test)).batch(batch_size)
+        train_dataset = tf.data.Dataset.from_tensor_slices((X_train, Y_train)).batch(
+            batch_size
+        )
+        test_dataset = tf.data.Dataset.from_tensor_slices((X_test, Y_test)).batch(
+            batch_size
+        )
         # Let's run this!
         print("Training model...")
-        self.model.fit(train_dataset, epochs=epochs, validation_data=test_dataset, verbose=0)
+        self.model.fit(
+            train_dataset, epochs=epochs, validation_data=test_dataset, verbose=0
+        )
         print("Done training model.")
+
     def evaluate_model(self, X_test, Y_test):
         """
         A function that evaluates the model on the given data.
@@ -157,53 +206,76 @@ def get_train_test_split(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
     :param self_sup: Boolean indicating whether dataframe is self-supervised or not
     :return: X_train, X_test, Y_train, Y_test according to the given split
     """
-    df = df.sort_values('LocalDtTm')
+    df = df.sort_values("LocalDtTm")
     # split into train and test
     train_length = int(TRAIN_TEST_SPLIT * df.shape[0])
     train = df.iloc[:train_length, :]
     test = df.iloc[train_length:, :]
-    assert test.shape[0] + train.shape[0] == df.shape[0], 'Train-Test shapes don not add up.'
+    assert (
+        test.shape[0] + train.shape[0] == df.shape[0]
+    ), "Train-Test shapes don not add up."
     if self_sup:
-        X_train = train.drop(columns=['LocalDtTm', 'CGM'])
-        Y_train = train.drop(columns=['LocalDtTm', 'CGM'])
-        X_test = test.drop(columns=['LocalDtTm', 'CGM'])
-        Y_test = test.drop(columns=['LocalDtTm', 'CGM'])
+        X_train = train.drop(columns=["LocalDtTm", "CGM"])
+        Y_train = train.drop(columns=["LocalDtTm", "CGM"])
+        X_test = test.drop(columns=["LocalDtTm", "CGM"])
+        Y_test = test.drop(columns=["LocalDtTm", "CGM"])
         for i in range(1, 289):
-            X_train = X_train.drop(columns=[f'insulin {i} target', f'mealsize {i} target', f'carbs {i} target',
-                                             f'exercise {i} target'])
-            Y_train = Y_train.drop(columns=[f'insulin {i}', f'mealsize {i}', f'carbs {i}', f'exercise {i}'])
-            X_test = X_test.drop(columns=[f'insulin {i} target', f'mealsize {i} target', f'carbs {i} target',
-                                            f'exercise {i} target'])
-            Y_test = Y_test.drop(columns=[f'insulin {i}', f'mealsize {i}', f'carbs {i}', f'exercise {i}'])
+            X_train = X_train.drop(
+                columns=[
+                    f"insulin {i} target",
+                    f"mealsize {i} target",
+                    f"carbs {i} target",
+                    f"exercise {i} target",
+                ]
+            )
+            Y_train = Y_train.drop(
+                columns=[f"insulin {i}", f"mealsize {i}", f"carbs {i}", f"exercise {i}"]
+            )
+            X_test = X_test.drop(
+                columns=[
+                    f"insulin {i} target",
+                    f"mealsize {i} target",
+                    f"carbs {i} target",
+                    f"exercise {i} target",
+                ]
+            )
+            Y_test = Y_test.drop(
+                columns=[f"insulin {i}", f"mealsize {i}", f"carbs {i}", f"exercise {i}"]
+            )
     else:
-        X_train = train.drop(columns=['LocalDtTm', 'CGM'])
-        Y_train = train[['CGM', 'DeidentID']]
-        X_test = test.drop(columns=['LocalDtTm', 'CGM'])
-        Y_test = test[['CGM', 'DeidentID']]
+        X_train = train.drop(columns=["LocalDtTm", "CGM"])
+        Y_train = train[["CGM", "DeidentID"]]
+        X_test = test.drop(columns=["LocalDtTm", "CGM"])
+        Y_test = test[["CGM", "DeidentID"]]
     return X_train, X_test, Y_train, Y_test
 
-def get_train_test_split_all(df, TRAIN_TEST_SPLIT:float, self_sup:bool):
+
+def get_train_test_split_all(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
     X_train = pd.DataFrame()
     Y_train = pd.DataFrame()
     X_test = pd.DataFrame()
     Y_test = pd.DataFrame()
-    for i in range(1,31):
-        X_train_temp, X_test_temp, Y_train_temp, Y_test_temp = get_train_test_split(df[df['DeidentID'] == i], TRAIN_TEST_SPLIT, self_sup)
+    for i in range(1, 31):
+        X_train_temp, X_test_temp, Y_train_temp, Y_test_temp = get_train_test_split(
+            df[df["DeidentID"] == i], TRAIN_TEST_SPLIT, self_sup
+        )
         X_train = pd.concat([X_train, X_train_temp])
         Y_train = pd.concat([Y_train, Y_train_temp])
         X_test = pd.concat([X_test, X_test_temp])
         Y_test = pd.concat([Y_test, Y_test_temp])
-    #X_train.drop(columns=['DeidentID'], inplace=True)
-    #X_test.drop(columns=['DeidentID'], inplace=True)
+    # X_train.drop(columns=['DeidentID'], inplace=True)
+    # X_test.drop(columns=['DeidentID'], inplace=True)
     return X_train, X_test, Y_train, Y_test
 
-def get_train_test_split_search(df, TRAIN_TEST_SPLIT:float, self_sup:bool):
+
+def get_train_test_split_search(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
     # keep only the first TRAIN_TEST_SPLIT * 100 rows of df
-    n = int (TRAIN_TEST_SPLIT * 100 * len(df))
+    n = int(TRAIN_TEST_SPLIT * 100 * len(df))
     df = df.head(n)
     return get_train_test_split_all(df, TRAIN_TEST_SPLIT, self_sup)
 
-def apply_data_missingness (df, missingness: float):
+
+def apply_data_missingness(df, missingness: float):
     if missingness == 0.0:
         return df
     n = df.shape[0]
@@ -223,75 +295,169 @@ def apply_data_missingness (df, missingness: float):
 
 
 def xi(x, a, epsilon):
-    return 2/epsilon * (x-a-epsilon/2)
+    two = tf.constant(2, dtype=tf.float32)
+    two_over_epsilon = tf.math.divide(two, epsilon)
+    a_plus_epsilon_over_two = tf.math.add(a, tf.math.divide(epsilon, two))
+    return tf.multiply(two_over_epsilon, tf.math.subtract(x, a_plus_epsilon_over_two))
+    # return 2/epsilon * (x-a-epsilon/2)
 
 
-# corrected
 def sigmoid(x, a, epsilon):
     XI = xi(x, a, epsilon)
-    #print(XI)
+    zero = tf.constant(0.0, dtype=tf.float32)
+    half = tf.constant(0.5, dtype=tf.float32)
+    one = tf.constant(1.0, dtype=tf.float32)
+    two = tf.constant(2, dtype=tf.float32)
+    epsilon_over_two = tf.math.divide(epsilon, two)
+    calc = tf.math.add(tf.math.add(tf.math.negative(tf.math.pow(XI, 3)), XI), half)
+
+    term1 = tf.math.add(
+        tf.math.multiply(tf.math.negative(half), tf.math.pow(XI, 4)), calc
+    )
+    term2 = tf.math.add(tf.math.multiply(half, tf.math.pow(XI, 4)), calc)
+
     return tf.where(
-        x<=a,
-        0.0,
+        tf.less_equal(x, a),
+        zero,
         tf.where(
-            x <= a + epsilon/2,
-            -1/2 *  (XI**4) - (XI**3) + XI + 1/2,
-            tf.where(
-                x <= a + epsilon,
-                1/2 * XI**4 - XI**3 + XI + 1/2,
-                1.0
-            )
-        )
+            tf.less_equal(x, tf.math.add(a, epsilon_over_two)),
+            term1,
+            tf.where(tf.less_equal(x, tf.math.add(a, epsilon)), term2, one),
+        ),
     )
 
+
 def xi_bar(x, a, epsilon):
-    return -2/epsilon * (x-a+epsilon/2)
+    minus_two = tf.constant(-2.0, dtype=tf.float32)
+    m_two_over_epsilon = tf.math.divide(minus_two, epsilon)
+    a_plus_epsilon_over_m_two = tf.math.add(a, tf.math.divide(epsilon, minus_two))
+    return tf.multiply(
+        m_two_over_epsilon, tf.math.subtract(x, a_plus_epsilon_over_m_two)
+    )
+    # return -2/epsilon * (x-a+epsilon/2)
 
 
 def sigmoid_bar(x, a, epsilon):
-    XI = xi_bar(x, a, epsilon)
-    #print(XI)
+    XI_BAR = xi_bar(x, a, epsilon)
+    zero = tf.constant(0.0, dtype=tf.float32)
+    half = tf.constant(0.5, dtype=tf.float32)
+    one = tf.constant(1.0, dtype=tf.float32)
+    two = tf.constant(2, dtype=tf.float32)
+    epsilon_over_two = tf.math.divide(epsilon, two)
+    calc = tf.math.add(
+        tf.math.add(tf.math.negative(tf.math.pow(XI_BAR, 3)), XI_BAR), half
+    )
+    term1 = tf.math.add(
+        tf.math.multiply(tf.math.negative(half), tf.math.pow(XI_BAR, 4)), calc
+    )
+    term2 = tf.math.add(tf.math.multiply(half, tf.math.pow(XI_BAR, 4)), calc)
+
+    # print(XI)
     return tf.where(
-        x<=a-epsilon,
-        1.0,
+        tf.less_equal(x, tf.math.subtract(a, epsilon)),
+        one,
         tf.where(
-            x <= a - epsilon/2,
-            1/2 *  (XI**4) - (XI**3) + XI + 1/2,
-            tf.where(
-                x <= a ,
-                -1/2 * XI**4 - XI**3 + XI + 1/2,
-                0.0
-            )
-        )
+            tf.math.less_equal(x, tf.math.subtract(a, epsilon_over_two)),
+            term2,
+            tf.where(tf.math.less_equal(x, a), term1, zero),
+        ),
     )
 
 
-alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H = 1.5, 1.0, 30.0, 100.0, 10.0, 20.0, 85.0, 155.0
+alpha_L = tf.constant(1.5, dtype=tf.float32)
+alpha_H = tf.constant(1.0, dtype=tf.float32)
+beta_L = tf.constant(30.0, dtype=tf.float32)
+beta_H = tf.constant(100.0, dtype=tf.float32)
+gamma_L = tf.constant(10.0, dtype=tf.float32)
+gamma_H = tf.constant(20.0, dtype=tf.float32)
+t_L = tf.constant(85.0, dtype=tf.float32)
+t_H = tf.constant(155.0, dtype=tf.float32)
 
 
-def Pen(g, g_hat, alpha_L=alpha_L, alpha_H=alpha_H, beta_L=beta_L, beta_H=beta_H, gamma_L=gamma_L, gamma_H=gamma_H,
-        t_L=t_L, t_H=t_H):
-    return 1 + alpha_L * sigmoid_bar(g, t_L, beta_L) * sigmoid(g_hat, g,
-                                                               gamma_L) + alpha_H * sigmoid(
-        g, t_H, beta_H) * sigmoid_bar(g_hat, g, gamma_H)
+def Pen(
+    g,
+    g_hat,
+    alpha_L=alpha_L,
+    alpha_H=alpha_H,
+    beta_L=beta_L,
+    beta_H=beta_H,
+    gamma_L=gamma_L,
+    gamma_H=gamma_H,
+    t_L=t_L,
+    t_H=t_H,
+):
+    one = tf.constant(1.0, dtype=tf.float32)
+    return tf.math.add(
+        one,
+        tf.math.add(
+            tf.math.multiply(
+                alpha_L,
+                tf.math.multiply(
+                    sigmoid_bar(g, t_L, beta_L), sigmoid(g_hat, g, gamma_L)
+                ),
+            ),
+            tf.math.multiply(
+                alpha_H,
+                tf.math.multiply(
+                    sigmoid(g, t_H, beta_H), sigmoid_bar(g_hat, g, gamma_H)
+                ),
+            ),
+        ),
+    )
 
 
-def gSE(g, g_hat, alpha_L=alpha_L, alpha_H=alpha_H, beta_L=beta_L, beta_H=beta_H, gamma_L=gamma_L, gamma_H=gamma_H,
-        t_L=t_L, t_H=t_H):
-    return tf.math.square(tf.cast(g, tf.float32) - g_hat) * Pen(tf.cast(g, tf.float32), g_hat, alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H)
+def gSE(
+    g,
+    g_hat,
+    alpha_L=alpha_L,
+    alpha_H=alpha_H,
+    beta_L=beta_L,
+    beta_H=beta_H,
+    gamma_L=gamma_L,
+    gamma_H=gamma_H,
+    t_L=t_L,
+    t_H=t_H,
+):
+    return tf.math.multiply(
+        tf.math.square(tf.subtract(tf.cast(g, tf.float32), g_hat)),
+        Pen(
+            tf.cast(g, tf.float32),
+            g_hat,
+            alpha_L,
+            alpha_H,
+            beta_L,
+            beta_H,
+            gamma_L,
+            gamma_H,
+            t_L,
+            t_H,
+        ),
+    )
 
 
-def gMSE(g, g_hat, alpha_L=alpha_L, alpha_H=alpha_H, beta_L=beta_L, beta_H=beta_H, gamma_L=gamma_L, gamma_H=gamma_H,
-         t_L=t_L, t_H=t_H):
-    return tf.math.reduce_mean(gSE(g, g_hat, alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H))
+def gMSE(
+    g,
+    g_hat,
+    alpha_L=alpha_L,
+    alpha_H=alpha_H,
+    beta_L=beta_L,
+    beta_H=beta_H,
+    gamma_L=gamma_L,
+    gamma_H=gamma_H,
+    t_L=t_L,
+    t_H=t_H,
+):
+    return tf.math.reduce_mean(
+        gSE(g, g_hat, alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H)
+    )
 
 
-if __name__ == '__main__':
-    print('stop being red')
-    #TODO: ensure dfs are sorted properly
-    #TODO: discuss batch norm in FC layers -> ask Peter
-    #TODO: Go over data visualization Functions (check naming convention and titles, etc.)
-    #TODO: Think about modelling justification
-    #TODO: Merge all to main
-    #TODO: Run Grid Search for each Model
-    #TODO: Run Experiments for each Model
+if __name__ == "__main__":
+    print("stop being red")
+    # TODO: ensure dfs are sorted properly
+    # TODO: discuss batch norm in FC layers -> ask Peter
+    # TODO: Go over data visualization Functions (check naming convention and titles, etc.)
+    # TODO: Think about modelling justification
+    # TODO: Merge all to main
+    # TODO: Run Grid Search for each Model
+    # TODO: Run Experiments for each Model
