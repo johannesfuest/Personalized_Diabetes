@@ -5,6 +5,7 @@ import sigopt
 import git
 import os
 import tensorflow as tf
+import argparse
 
 
 os.environ["SIGOPT_API_TOKEN"] = "CDLCFJJUWDYYKMDCXOISTWNALSSWLQQGBJHEBNVKXFQMFWNE"
@@ -35,7 +36,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
     train_gmses = []
     test_mses = []
     test_gmses = []
-    run.log_model("Baseline 4")
+    run.log_model("Final Model")
     run.log_metadata("sgd optimizer", "adam")
     for i in range(1, 31):
         # create the model
@@ -90,11 +91,18 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
 
 if __name__ == '__main__':
     CONV_INPUT_LENGTH = 288
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--name', type=str, help='Specify an experiment name')
+    args = parser.parse_args()
+    name = args.name
+    if not name:
+        name=''
+
     data = load_data(0.8, 0.0)
     repo = git.Repo(search_parent_directories=True)
     sha = repo.head.object.hexsha
     experiment = sigopt.create_experiment(
-        name="Baseline_1_experiment",
+        name=f"Final_model_{name}",
         type="offline",
         parameters=[
             dict(name="activation", type="categorical", categorical_values=["relu", "tanh"]),
