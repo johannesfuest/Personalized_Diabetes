@@ -64,7 +64,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
     test_gmses = []
     run.log_model("Baseline 4")
     run.log_metadata("sgd optimizer", "adam")
-    for i in range(5, 6):
+    for i in range(1, 31):
         # create the model
         with tf.device("/GPU:0"):
             model = sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
