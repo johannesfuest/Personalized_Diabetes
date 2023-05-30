@@ -57,7 +57,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
                           run.params.learning_rate_0, run.params.batch_size_0, True)
     for i in range(1, 31):
         with tf.device('/device:GPU:0'):
-            model = tf.keras.models.clone_model(base_model.model, clone_function=lambda layer: layer)
+            model = tf.keras.models.clone_model(base_model, clone_function=lambda layer: layer)
             model.set_weights(base_model.model.get_weights())
 
             # Compile the cloned model (required before it can be used)
