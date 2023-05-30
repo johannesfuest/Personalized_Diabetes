@@ -133,13 +133,13 @@ class GlucoseModel():
 
         # Now fully connect layers
         # Use multiples of two as recommended in class.
-        FC1 = tfl.Dense(units=512, activation=self.run.params.activation)(post_conv)
+        FC1 = tfl.Dense(units=512, activation='relu')(post_conv)
         DR1 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC1)
-        FC2 = tfl.Dense(units=256, activation=self.run.params.activation)(DR1)
+        FC2 = tfl.Dense(units=256, activation='relu')(DR1)
         DR2 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC2)
-        FC3 = tfl.Dense(units=128, activation=self.run.params.activation)(DR2)
+        FC3 = tfl.Dense(units=128, activation='relu')(DR2)
         DR3 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC3)
-        FC4 = tfl.Dense(units=64, activation=self.run.params.activation)(DR3)
+        FC4 = tfl.Dense(units=64, activation='relu')(DR3)
 
         # The output does NOT have an activation (regression task)
         # Last layer has 4*CONV_INPUT_LENGTH units if self-supervised, else 1 unit.

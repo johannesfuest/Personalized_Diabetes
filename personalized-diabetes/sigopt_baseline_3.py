@@ -64,6 +64,23 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         # evaluate the model
         train_mse, train_gme = model.evaluate_model(x_train, y_train)
         test_mse, test_gme = model.evaluate_model(x_test, y_test)
+
+        print(f'len(x_train){len(x_train)})')
+        print(f'len(x_test){len(x_test)})')
+        print(f'train_mse{train_mse})')
+        print(f'train_gme{train_gme})')
+        print(f'test_mse{test_mse})')
+        print(f'test_gme{test_gme})')
+
+        print('Y-TRAIN:')
+        print(y_train.describe())
+        print('Y-HAT-TRAIN:')
+        print(pd.DataFrame(model.model.predict(x_train)).describe())
+
+        print('Y-TEST:')
+        print(y_test.describe())
+        print('Y-HAT-TEST:')
+        print(pd.DataFrame(model.model.predict(x_test)).describe())
         # log the model weights
         weights_train.append(len(x_train))
         weights_test.append(len(x_test))
@@ -107,27 +124,22 @@ if __name__ == "__main__":
         name=f"Baseline_3_{name}",
         type="offline",
         parameters=[
+            dict(name="dropout_rate", type="double", bounds=dict(min=0.0, max=0.2)),
             dict(
-                name="activation",
-                type="categorical",
-                categorical_values=["relu", "tanh"],
+                name="learning_rate", type="double", bounds=dict(min=0.0008, max=0.0015)
             ),
-            dict(name="dropout_rate", type="double", bounds=dict(min=0.0, max=0.5)),
-            dict(
-                name="learning_rate", type="double", bounds=dict(min=0.00001, max=0.01)
-            ),
-            dict(name="num_epochs", type="int", bounds=dict(min=1, max=10)),
-            dict(name="batch_size", type="int", bounds=dict(min=32, max=64)),
-            dict(name="filter_1", type="int", bounds=dict(min=1, max=10)),
-            dict(name="kernel_1", type="int", bounds=dict(min=5, max=10)),
+            dict(name="num_epochs", type="int", bounds=dict(min=8, max=12)),
+            dict(name="batch_size", type="categorical", categorical_values=[32,64]),
+            dict(name="filter_1", type="int", bounds=dict(min=2, max=4)),
+            dict(name="kernel_1", type="int", bounds=dict(min=5, max=7)),
             dict(name="stride_1", type="int", bounds=dict(min=1, max=2)),
             dict(name="pool_size_1", type="int", bounds=dict(min=1, max=3)),
             dict(name="pool_stride_1", type="int", bounds=dict(min=1, max=2)),
-            dict(name="filter_2", type="int", bounds=dict(min=1, max=5)),
-            dict(name="kernel_2", type="int", bounds=dict(min=2, max=5)),
+            dict(name="filter_2", type="int", bounds=dict(min=5, max=7)),
+            dict(name="kernel_2", type="int", bounds=dict(min=4, max=6)),
             dict(name="stride_2", type="int", bounds=dict(min=1, max=2)),
-            dict(name="pool_size_2", type="int", bounds=dict(min=1, max=2)),
-            dict(name="pool_stride_2", type="int", bounds=dict(min=1, max=2)),
+            dict(name="pool_size_2", type="int", bounds=dict(min=5, max=6)),
+            dict(name="pool_stride_2", type="int", bounds=dict(min=3, max=5)),
         ],
         metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
         linear_constraints=[
