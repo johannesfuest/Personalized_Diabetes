@@ -155,7 +155,7 @@ class GlucoseModel():
         :return:
         """
         # Create optimizer (Adam with specified learning rate - use default parameters otherwise. )
-        adam_optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
+        adam_optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
         # Compile model
         if self_sup:
             self.model.compile(optimizer=adam_optimizer, loss="mse", metrics=["mse"])
