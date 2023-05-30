@@ -57,9 +57,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
                           run.params.learning_rate_0, run.params.batch_size_0, True)
     for i in range(1, 31):
         with tf.device('/device:GPU:0'):
-            model = sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
-            model.model = tf.keras.models.clone_model(base_model.model, clone_function=lambda layer: layer)
-            model.model.set_weights(base_model.model.get_weights())
+            model = base_model.__class__.from_config(base_model.get_config())
         # create the model
         x_train = X_train_self[X_train_self['DeidentID'] == i]
         x_test = X_test_self[X_test_self['DeidentID'] == i]
@@ -74,7 +72,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
             model.train_model(run.params.num_epochs_1, x_train, x_test, y_train, y_test,
                               run.params.learning_rate_1, run.params.batch_size_1, True)
             # individualization
-            model.model.activate_finetune_mode()
+            model.activate_finetune_mode()
         x_train = X_train[X_train['DeidentID'] == i]
         x_test = X_test[X_test['DeidentID'] == i]
         y_train = Y_train[Y_train['DeidentID'] == i]
