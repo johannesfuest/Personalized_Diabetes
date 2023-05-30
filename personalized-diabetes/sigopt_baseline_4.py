@@ -20,9 +20,6 @@ def load_data(split: float, data_missingness: float):
     print("Basic data read")
     df_basic = pd.read_csv(DATASET, skiprows=lambda i: i % 2 != 0)
 
-    df_basic = df_basic.sample(n=1000, random_state=1)
-
-    df_self = df_self.sample(n=1000, random_state=1)
     print("Self data read")
     # delete a fraction of the df rows according to data_missingness
     df_basic = sf.apply_data_missingness(df_basic, data_missingness)
@@ -69,7 +66,8 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
     run.log_metadata("sgd optimizer", "adam")
     for i in range(1, 31):
         # create the model
-        model = sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
+        with tf.device("/GPU:0"):
+            model = sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
         x_train = X_train_self[X_train_self["DeidentID"] == i]
         x_test = X_test_self[X_test_self["DeidentID"] == i]
         y_train = Y_train_self[Y_train_self["DeidentID"] == i]
@@ -78,19 +76,20 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         x_test = x_test.drop(columns=["DeidentID"])
         y_train = y_train.drop(columns=["DeidentID"])
         y_test = y_test.drop(columns=["DeidentID"])
-        # self-supervised training
-        model.train_model(
-            run.params.num_epochs_1,
-            x_train,
-            x_test,
-            y_train,
-            y_test,
-            run.params.learning_rate_1,
-            run.params.batch_size_1,
-            True
-        )
-        # individualization
-        model.activate_finetune_mode()
+        with tf.device("/GPU:0"):
+            model.train_model(
+                run.params.num_epochs_1,
+                x_train,
+                x_test,
+                y_train,
+                y_test,
+                run.params.learning_rate_1,
+                run.params.batch_size_1,
+                True,
+            )
+
+            # individualization
+            model.activate_finetune_mode()
         x_train = X_train[X_train["DeidentID"] == i]
         x_test = X_test[X_test["DeidentID"] == i]
         y_train = Y_train[Y_train["DeidentID"] == i]
@@ -99,19 +98,20 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         x_test = x_test.drop(columns=["DeidentID"])
         y_train = y_train.drop(columns=["DeidentID"])
         y_test = y_test.drop(columns=["DeidentID"])
-        model.train_model(
-            run.params.num_epochs_2,
-            x_train,
-            x_test,
-            y_train,
-            y_test,
-            run.params.learning_rate_2,
-            run.params.batch_size_2,
-            False
-        )
-        # evaluate the model
-        train_mse, train_gme = model.evaluate_model(x_train, y_train)
-        test_mse, test_gme = model.evaluate_model(x_test, y_test)
+        with tf.device("/GPU:0"):
+            model.train_model(
+                run.params.num_epochs_2,
+                x_train,
+                x_test,
+                y_train,
+                y_test,
+                run.params.learning_rate_2,
+                run.params.batch_size_2,
+                False
+            )
+            # evaluate the model
+            train_mse, train_gme = model.evaluate_model(x_train, y_train)
+            test_mse, test_gme = model.evaluate_model(x_test, y_test)
         # log the model weights
         weights.append(len(x_train))
         train_mses.append(train_mse)
@@ -166,21 +166,21 @@ if __name__ == "__main__":
                 bounds=dict(min=0.00001, max=0.01),
             ),
             dict(name="num_epochs_1", type="int", bounds=dict(min=1, max=15)),
-            dict(name="batch_size_1", type="int", bounds=dict(min=2, max=32)),
+            dict(name="batch_size_1", type="int", bounds=dict(min=32, max=64)),
             dict(
                 name="learning_rate_2",
                 type="double",
                 bounds=dict(min=0.00001, max=0.01),
             ),
-            dict(name="num_epochs_2", type="int", bounds=dict(min=1, max=15)),
-            dict(name="batch_size_2", type="int", bounds=dict(min=2, max=32)),
+            dict(name="num_epochs_2", type="int", bounds=dict(min=1, max=10)),
+            dict(name="batch_size_2", type="int", bounds=dict(min=32, max=64)),
             dict(name="filter_1", type="int", bounds=dict(min=1, max=10)),
             dict(name="kernel_1", type="int", bounds=dict(min=5, max=10)),
             dict(name="stride_1", type="int", bounds=dict(min=1, max=2)),
             dict(name="pool_size_1", type="int", bounds=dict(min=1, max=3)),
             dict(name="pool_stride_1", type="int", bounds=dict(min=1, max=2)),
             dict(name="filter_2", type="int", bounds=dict(min=1, max=5)),
-            dict(name="kernel_2", type="int", bounds=dict(min=1, max=5)),
+            dict(name="kernel_2", type="int", bounds=dict(min=2, max=5)),
             dict(name="stride_2", type="int", bounds=dict(min=1, max=2)),
             dict(name="pool_size_2", type="int", bounds=dict(min=1, max=2)),
             dict(name="pool_stride_2", type="int", bounds=dict(min=1, max=2)),
@@ -221,7 +221,7 @@ if __name__ == "__main__":
             ),
         ],
         parallel_bandwidth=1,
-        budget=1000,
+        budget=100,
     )
     for run in experiment.loop():
         with run:

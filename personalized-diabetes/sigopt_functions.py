@@ -58,6 +58,22 @@ class ConvLayer(tf.keras.layers.Layer):
     def build(self, input_shape):
         pass
 
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({
+            'CONV_INPUT_LENGTH': self.CONV_INPUT_LENGTH,
+            'conv1': self.conv1,
+            'norm1': self.norm1,
+            'pool1': self.pool1,
+            'drop1': self.drop1,
+            'conv2': self.conv2,
+            'norm2': self.norm2,
+            'pool2': self.pool2,
+            'drop2': self.drop2,
+            'flatten': self.flatten,
+        })
+        return config
+
     def call(self, input):
         assert input.shape[1] == self.CONV_INPUT_LENGTH
         # 1st CONV
