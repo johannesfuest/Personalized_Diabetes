@@ -68,9 +68,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         with tf.device('/device:GPU:0'):
             #clone the base model
             glucose_temp = sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
-            model = tf.keras.models.clone_model(base_model.model)
-            model.set_weights(base_model.model.get_weights())
-            glucose_temp.set_model(model)
+            glucose_temp.model.set_weights(base_model.model.get_weights())
 
         # create the model
         x_train = X_train_self[X_train_self['DeidentID'] == i]
