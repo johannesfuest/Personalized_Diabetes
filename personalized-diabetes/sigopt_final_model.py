@@ -57,11 +57,9 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
                           run.params.learning_rate_0, run.params.batch_size_0, True)
     for i in range(1, 31):
         with tf.device('/device:GPU:0'):
-            model = tf.keras.models.clone_model(base_model, clone_function=lambda layer: layer)
-            model.set_weights(base_model.model.get_weights())
-
-            # Compile the cloned model (required before it can be used)
-            model.compile(optimizer='adam', loss='mse')
+            model = sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
+            model.model = tf.keras.models.clone_model(base_model.model, clone_function=lambda layer: layer)
+            model.model.set_weights(base_model.model.get_weights())
         # create the model
         x_train = X_train_self[X_train_self['DeidentID'] == i]
         x_test = X_test_self[X_test_self['DeidentID'] == i]
