@@ -155,7 +155,7 @@ if __name__ == '__main__':
     repo = git.Repo(search_parent_directories=True)
     sha = repo.head.object.hexsha
     experiment = sigopt.create_experiment(
-        name=f"Final_model_local_debug_{name}",
+        name=f"Final_model_{name}",
         type="offline",
         parameters=[dict(name="dropout_rate", type="double", bounds=dict(min=0.0, max=0.2)),
             dict(
