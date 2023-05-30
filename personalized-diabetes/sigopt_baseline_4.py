@@ -113,6 +113,8 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
             train_gmse, train_mse = model.evaluate_model(x_train, y_train)
             test_gmse, test_mse = model.evaluate_model(x_test, y_test)
             preds_test = model.model.predict(x_test)
+            #print max label
+            print("Max label: ", max(y_test))
             #print max prediction
             print("Max prediction: ", max(preds_test))
             print("Train MSE: ", train_mse)
