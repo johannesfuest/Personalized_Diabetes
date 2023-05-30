@@ -56,7 +56,8 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         Y_train_self,
         Y_test_self,
     ) = data
-    weights = []
+    weights_train = []
+    weights_test = []
     train_mses = []
     train_gmses = []
     test_mses = []
@@ -112,7 +113,9 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
             train_mse, train_gme = model.evaluate_model(x_train, y_train)
             test_mse, test_gme = model.evaluate_model(x_test, y_test)
         # log the model weights
-        weights.append(len(x_train))
+        weights_train.append(len(x_train))
+        weights_test.append(len(x_test))
+        print(f'Length of patient train data{len(x_train)}')
         train_mses.append(train_mse)
         train_gmses.append(train_gme)
         test_mses.append(test_mse)
@@ -122,14 +125,14 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
     test_mse = 0
     test_gmse = 0
     for i in range(30):
-        train_mse += weights[i] * train_mses[i]
-        train_gmse += weights[i] * train_gmses[i]
-        test_mse += weights[i] * test_mses[i]
-        test_gmse += weights[i] * test_gmses[i]
-    train_mse /= sum(weights)
-    train_gmse /= sum(weights)
-    test_mse /= sum(weights)
-    test_gmse /= sum(weights)
+        train_mse += weights_train[i] * train_mses[i]
+        train_gmse += weights_train[i] * train_gmses[i]
+        test_mse += weights_test[i] * test_mses[i]
+        test_gmse += weights_test[i] * test_gmses[i]
+    train_mse /= sum(weights_train)
+    train_gmse /= sum(weights_train)
+    test_mse /= sum(weights_test)
+    test_gmse /= sum(weights_test)
     run.log_metric("train gMSE", train_gmse)
     run.log_metric("train MSE", train_mse)
     run.log_metric("test gMSE", test_gmse)
@@ -164,7 +167,7 @@ if __name__ == "__main__":
                 type="double",
                 bounds=dict(min=0.00001, max=0.01),
             ),
-            dict(name="num_epochs_1", type="int", bounds=dict(min=1, max=15)),
+            dict(name="num_epochs_1", type="int", bounds=dict(min=1, max=10)),
             dict(name="batch_size_1", type="int", bounds=dict(min=32, max=64)),
             dict(
                 name="learning_rate_2",
