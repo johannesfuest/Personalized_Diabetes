@@ -59,6 +59,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
                 y_test,
                 run.params.learning_rate,
                 run.params.batch_size,
+                False
             )
         # evaluate the model
         train_mse, train_gme = model.evaluate_model(x_train, y_train)
