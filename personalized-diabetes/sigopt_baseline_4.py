@@ -117,6 +117,8 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
             print("Test MSE: ", test_mse)
             print("Test gMSE: ", test_gmse)
 
+        print(len(x_train))
+        print(len(x_test))
         # log the model weights
         weights_train.append(len(x_train))
         weights_test.append(len(x_test))
