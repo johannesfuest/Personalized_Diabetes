@@ -74,7 +74,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
             model.train_model(run.params.num_epochs_1, x_train, x_test, y_train, y_test,
                               run.params.learning_rate_1, run.params.batch_size_1, True)
             # individualization
-            model.activate_finetune_mode()
+            model.model.activate_finetune_mode()
         x_train = X_train[X_train['DeidentID'] == i]
         x_test = X_test[X_test['DeidentID'] == i]
         y_train = Y_train[Y_train['DeidentID'] == i]
