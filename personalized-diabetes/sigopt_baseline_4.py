@@ -148,6 +148,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
     test_mse = min(test_mse, 10000000)
     test_gmse = min(test_gmse, 10000000)
 
+
     train_mse /= sum(weights_train)
     train_gmse /= sum(weights_train)
     test_mse /= sum(weights_test)
