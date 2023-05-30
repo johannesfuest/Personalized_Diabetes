@@ -10,7 +10,7 @@ import argparse
 
 os.environ["SIGOPT_API_TOKEN"] = "CDLCFJJUWDYYKMDCXOISTWNALSSWLQQGBJHEBNVKXFQMFWNE"
 os.environ["SIGOPT_PROJECT"] = "personalized-diabetes"
-DATASET = "basic_0.csv"
+DATASET = "basic_0_cleaned.csv"
 
 
 def load_data(split: float, data_missingness: float):
@@ -52,25 +52,37 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         # train the model
         with tf.device("/GPU:0"):
             model.train_model(
-                run.params.num_epochs,
+                10,
                 x_train,
                 x_test,
                 y_train,
                 y_test,
-                run.params.learning_rate,
-                run.params.batch_size,
+                0.001,
+                64,
                 False
             )
         # evaluate the model
         train_mse, train_gme = model.evaluate_model(x_train, y_train)
         test_mse, test_gme = model.evaluate_model(x_test, y_test)
         # log the model weights
-        weights_train.append(len(x_train))
-        weights_test.append(len(x_test))
-        train_mses.append(train_mse)
-        train_gmses.append(train_gme)
-        test_mses.append(test_mse)
-        test_gmses.append(test_gme)
+        print(f'len(x_train){len(x_train)})')
+        print(f'len(x_test){len(x_test)})')
+        print(f'train_mse{train_mse})')
+        print(f'train_gme{train_gme})')
+        print(f'test_mse{test_mse})')
+        print(f'test_gme{test_gme})')
+
+        print('Y-TRAIN:')
+        print(y_train.describe())
+        print('Y-HAT-TRAIN:')
+        print(pd.DataFrame(model.model.predict(x_train)).describe())
+
+
+        print('Y-TEST:')
+        print(y_test.describe())
+        print('Y-HAT-TEST:')
+        print(pd.DataFrame(model.model.predict(x_test)).describe())
+
     train_mse = 0
     train_gmse = 0
     test_mse = 0
@@ -114,7 +126,7 @@ if __name__ == "__main__":
             ),
             dict(name="dropout_rate", type="double", bounds=dict(min=0.0, max=0.5)),
             dict(
-                name="learning_rate", type="double", bounds=dict(min=0.00001, max=0.01)
+                name="learning_rate", type="double", bounds=dict(min=0.01, max=0.1)
             ),
             dict(name="num_epochs", type="int", bounds=dict(min=1, max=10)),
             dict(name="batch_size", type="int", bounds=dict(min=32, max=64)),

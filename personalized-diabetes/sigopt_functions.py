@@ -14,140 +14,70 @@ warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
 
 class ConvLayer(tf.keras.layers.Layer):
-    def __init__(self, CONV_INPUT_LENGTH: int, run, **kwargs):
-        super(ConvLayer, self).__init__(**kwargs)
-        self.CONV_INPUT_LENGTH = CONV_INPUT_LENGTH
-        self.conv1 = tfl.Conv1D(
-            filters=run.params.filter_1,
-            kernel_size=run.params.kernel_1,
-            strides=run.params.stride_1,
-            padding="valid",
-            use_bias=False,
-        )
-        self.norm1 = tfl.BatchNormalization(axis=2)
-        self.pool1 = tfl.MaxPool1D(
-            pool_size=run.params.pool_size_1,
-            strides=run.params.pool_stride_1,
-            padding="valid",
-        )
-        self.drop1 = tfl.Dropout(rate=run.params.dropout_rate)
-        self.conv2 = tfl.Conv1D(
-            filters=run.params.filter_2,
-            kernel_size=run.params.kernel_2,
-            strides=run.params.stride_2,
-            padding="valid",
-            use_bias=False,
-        )
-        self.norm2 = tfl.BatchNormalization(axis=2)
-        self.pool2 = tfl.MaxPool1D(
-            pool_size=run.params.pool_size_2,
-            strides=run.params.pool_stride_2,
-            padding="valid",
-        )
-        self.drop2 = tfl.Dropout(rate=run.params.dropout_rate)
+    def __init__(self):
+        super(ConvLayer, self).__init__()
+        self.conv1 = tfl.Conv1D(filters = 3, kernel_size = 5, strides = 1, padding = 'valid')
+        self.pool1 = tfl.MaxPool1D(pool_size = 2, strides = 2, padding = 'valid')
+        self.conv2 = tfl.Conv1D(filters = 6, kernel_size = 5, strides = 1, padding = 'valid')
+        self.pool2 = tfl.MaxPool1D(pool_size = 6, strides = 4, padding = 'valid')
         self.flatten = tfl.Flatten()
+
 
     def build(self, input_shape):
         pass
 
-    def get_config(self):
-        config = super().get_config().copy()
-        config.update({
-            'CONV_INPUT_LENGTH': self.CONV_INPUT_LENGTH,
-            'conv1': self.conv1,
-            'norm1': self.norm1,
-            'pool1': self.pool1,
-            'drop1': self.drop1,
-            'conv2': self.conv2,
-            'norm2': self.norm2,
-            'pool2': self.pool2,
-            'drop2': self.drop2,
-            'flatten': self.flatten,
-        })
-        return config
-
     def call(self, input):
-        assert input.shape[1] == self.CONV_INPUT_LENGTH
+            
+        assert input.shape[1] == 288
         # 1st CONV
         conv1_out = self.conv1(input)
-        # Batch Norm
-        norm1_out = self.norm1(conv1_out)
         # Max Pool
-        pool1_out = self.pool1(norm1_out)
-        # Dropout
-        drop1_out = self.drop1(pool1_out)
+        pool1_out = self.pool1(conv1_out)
         # 2nd CONV
-        conv2_out = self.conv2(drop1_out)
-        # Batch Norm
-        norm2_out = self.norm2(conv2_out)
+        conv2_out = self.conv2(pool1_out)
         # Max Pool
-        pool2_out = self.pool2(norm2_out)
-        # Dropout
-        drop2_out = self.drop2(pool2_out)
+        pool2_out = self.pool2(conv2_out)
         # Now flatten the Matrix into a 1D vector (shape 1x204)
-        flatten_out = self.flatten(drop2_out)
+        flatten_out = self.flatten(pool2_out)
+
         return flatten_out
 
 
 class GlucoseModel():
     def get_model(self, CONV_INPUT_LENGTH: int, self_sup: bool):
         # define the input with specified shape
-        input = tf.keras.Input(shape=(CONV_INPUT_LENGTH * 4, 1), batch_size=None)
-        # Calculate batchsize of current run.
+        input = tf.keras.Input(shape =(CONV_INPUT_LENGTH*4,1), batch_size=None)
+        # Calculate batchsize of current run. 
         batch_size = tf.shape(input)[0]
-        # Slice the data into four equally sized 1D-chunks for CNN.
-        diabetes_input = tf.slice(
-            input,
-            begin=[0, CONV_INPUT_LENGTH * 0, 0],
-            size=[batch_size, CONV_INPUT_LENGTH, 1],
-            name="diabetes_input",
-        )
-        meal_input = tf.slice(
-            input,
-            begin=[0, CONV_INPUT_LENGTH * 1, 0],
-            size=[batch_size, CONV_INPUT_LENGTH, 1],
-        )
-        smbg_input = tf.slice(
-            input,
-            begin=[0, CONV_INPUT_LENGTH * 2, 0],
-            size=[batch_size, CONV_INPUT_LENGTH, 1],
-        )
-        excercise_input = tf.slice(
-            input,
-            begin=[0, CONV_INPUT_LENGTH * 3, 0],
-            size=[batch_size, CONV_INPUT_LENGTH, 1],
-        )
+        
+        # Slice the data into four equally sized 1D-chunks for CNN. 
+        diabetes_input = tf.slice(input, begin=[0,CONV_INPUT_LENGTH*0,0], size=[batch_size,CONV_INPUT_LENGTH,1], name='diabetes_input')
+        meal_input = tf.slice(input, begin=[0,CONV_INPUT_LENGTH*1,0], size=[batch_size,CONV_INPUT_LENGTH,1])
+        smbg_input = tf.slice(input, begin=[0,CONV_INPUT_LENGTH*2,0], size=[batch_size,CONV_INPUT_LENGTH,1])
+        excercise_input = tf.slice(input, begin=[0,CONV_INPUT_LENGTH*3,0], size=[batch_size,CONV_INPUT_LENGTH,1])
 
         # Create the four custom conv-layers
-        diabetes_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(diabetes_input)
-        meal_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(meal_input)
-        smbg_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(smbg_input)
-        excercise_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(excercise_input)
+        diabetes_conv = ConvLayer()(diabetes_input)
+        meal_conv = ConvLayer()(meal_input)
+        smbg_conv = ConvLayer()(smbg_input)
+        excercise_conv = ConvLayer()(excercise_input)
 
         # Concat the result of conv-layers
-        post_conv = tf.concat(
-            [diabetes_conv, meal_conv, smbg_conv, excercise_conv],
-            axis=1,
-            name="post_conv",
-        )
+        post_conv = tf.concat([diabetes_conv, meal_conv, smbg_conv, excercise_conv], axis=1, name='post_conv')
+        
+        # Sanity check: Make sure that the shapes are as expected. 
+        assert post_conv.shape[1] == 204*4, 'Shape mismatch after conv layers'
 
         # Now fully connect layers
         # Use multiples of two as recommended in class.
-        FC1 = tfl.Dense(units=512, activation=self.run.params.activation)(post_conv)
-        DR1 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC1)
-        FC2 = tfl.Dense(units=256, activation=self.run.params.activation)(DR1)
-        DR2 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC2)
-        FC3 = tfl.Dense(units=128, activation=self.run.params.activation)(DR2)
-        DR3 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC3)
-        FC4 = tfl.Dense(units=64, activation=self.run.params.activation)(DR3)
-
+        FC1 = tfl.Dense(units = 512, activation = 'relu')(post_conv)
+        FC2 = tfl.Dense(units = 256, activation = 'relu')(FC1)
+        FC3 = tfl.Dense(units = 128, activation = 'relu')(FC2)
+        FC4 = tfl.Dense(units = 64, activation = 'relu')(FC3)
         # The output does NOT have an activation (regression task)
-        # Last layer has 4*CONV_INPUT_LENGTH units if self-supervised, else 1 unit.
-        if self_sup:
-            output = tfl.Dense(units=4 * CONV_INPUT_LENGTH, activation=None)(FC4)
-        else:
-            output = tfl.Dense(units=1, activation=None)(FC4)
-        model = tf.keras.Model(inputs=input, outputs=output)
+        output = tfl.Dense(units = 1, activation = None)(FC4)
+        
+        model = tf.keras.Model(inputs = input, outputs = output)
         return model
 
     def __init__(self, CONV_INPUT_LENGTH: int, self_sup: bool, run):
@@ -176,7 +106,7 @@ class GlucoseModel():
         if self_sup:
             self.model.compile(optimizer=adam_optimizer, loss="mse", metrics=["mse"])
         else:
-            self.model.compile(optimizer=adam_optimizer, loss=gMSE, metrics=["mse"])
+            self.model.compile(optimizer=adam_optimizer, loss="mse", metrics=["mse"])
         # Create train and test datasets
         train_dataset = tf.data.Dataset.from_tensor_slices((X_train, Y_train)).batch(
             batch_size
@@ -200,7 +130,7 @@ class GlucoseModel():
         :return: The loss and mse of the model on the given data
         """
         # Evaluate model
-        metrics = self.model.evaluate(X_test, Y_test, verbose=0)
+        metrics = self.model.evaluate(X_test, Y_test, verbose= 1)
         return metrics
 
     def activate_finetune_mode(self):
@@ -309,165 +239,68 @@ def apply_data_missingness(df, missingness: float):
 
 
 def xi(x, a, epsilon):
-    two = tf.constant(2, dtype=tf.float32)
-    two_over_epsilon = tf.math.divide(two, epsilon)
-    a_plus_epsilon_over_two = tf.math.add(a, tf.math.divide(epsilon, two))
-    return tf.multiply(two_over_epsilon, tf.math.subtract(x, a_plus_epsilon_over_two))
-    # return 2/epsilon * (x-a-epsilon/2)
+    return 2/epsilon * (x-a-epsilon/2)
 
 
+# corrected
 def sigmoid(x, a, epsilon):
     XI = xi(x, a, epsilon)
-    zero = tf.constant(0.0, dtype=tf.float32)
-    half = tf.constant(0.5, dtype=tf.float32)
-    one = tf.constant(1.0, dtype=tf.float32)
-    two = tf.constant(2, dtype=tf.float32)
-    epsilon_over_two = tf.math.divide(epsilon, two)
-    three = tf.constant(3, dtype=tf.float32)
-    calc = tf.math.add(tf.math.add(tf.math.negative(tf.math.pow(XI, three)), XI), half)
-    four = tf.constant(4, dtype=tf.float32)
-
-    term1 = tf.math.add(
-        tf.math.multiply(tf.math.negative(half), tf.math.pow(XI, four)), calc
-    )
-    term2 = tf.math.add(tf.math.multiply(half, tf.math.pow(XI, four)), calc)
-
+    #print(XI)
     return tf.where(
-        tf.less_equal(x, a),
-        zero,
+        x<=a,
+        0.0,
         tf.where(
-            tf.less_equal(x, tf.math.add(a, epsilon_over_two)),
-            term1,
-            tf.where(tf.less_equal(x, tf.math.add(a, epsilon)), term2, one),
-        ),
+            x <= a + epsilon/2,
+            -1/2 *  (XI**4) - (XI**3) + XI + 1/2,
+            tf.where(
+                x <= a + epsilon,
+                1/2 * XI**4 - XI**3 + XI + 1/2,
+                1.0
+            )
+        )
     )
-
 
 def xi_bar(x, a, epsilon):
-    minus_two = tf.constant(-2.0, dtype=tf.float32)
-    m_two_over_epsilon = tf.math.divide(minus_two, epsilon)
-    a_plus_epsilon_over_m_two = tf.math.add(a, tf.math.divide(epsilon, minus_two))
-    return tf.multiply(
-        m_two_over_epsilon, tf.math.subtract(x, a_plus_epsilon_over_m_two)
-    )
-    # return -2/epsilon * (x-a+epsilon/2)
+    return -2/epsilon * (x-a+epsilon/2)
 
 
 def sigmoid_bar(x, a, epsilon):
-    XI_BAR = xi_bar(x, a, epsilon)
-    zero = tf.constant(0.0, dtype=tf.float32)
-    half = tf.constant(0.5, dtype=tf.float32)
-    one = tf.constant(1.0, dtype=tf.float32)
-    two = tf.constant(2, dtype=tf.float32)
-    three = tf.constant(3, dtype=tf.float32)
-    four = tf.constant(4, dtype=tf.float32)
-    epsilon_over_two = tf.math.divide(epsilon, two)
-    calc = tf.math.add(
-        tf.math.add(tf.math.negative(tf.math.pow(XI_BAR, three)), XI_BAR), half
-    )
-    term1 = tf.math.add(
-        tf.math.multiply(tf.math.negative(half), tf.math.pow(XI_BAR, four)), calc
-    )
-    term2 = tf.math.add(tf.math.multiply(half, tf.math.pow(XI_BAR, four)), calc)
-
-    # print(XI)
+    XI = xi_bar(x, a, epsilon)
+    #print(XI)
     return tf.where(
-        tf.less_equal(x, tf.math.subtract(a, epsilon)),
-        one,
+        x<=a-epsilon,
+        1.0,
         tf.where(
-            tf.math.less_equal(x, tf.math.subtract(a, epsilon_over_two)),
-            term2,
-            tf.where(tf.math.less_equal(x, a), term1, zero),
-        ),
+            x <= a - epsilon/2,
+            1/2 *  (XI**4) - (XI**3) + XI + 1/2,
+            tf.where(
+                x <= a ,
+                -1/2 * XI**4 - XI**3 + XI + 1/2,
+                0.0
+            )
+        )
     )
 
 
-alpha_L = tf.constant(1.5, dtype=tf.float32)
-alpha_H = tf.constant(1.0, dtype=tf.float32)
-beta_L = tf.constant(30.0, dtype=tf.float32)
-beta_H = tf.constant(100.0, dtype=tf.float32)
-gamma_L = tf.constant(10.0, dtype=tf.float32)
-gamma_H = tf.constant(20.0, dtype=tf.float32)
-t_L = tf.constant(85.0, dtype=tf.float32)
-t_H = tf.constant(155.0, dtype=tf.float32)
+alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H = 1.5, 1.0, 30.0, 100.0, 10.0, 20.0, 85.0, 155.0
 
 
-def Pen(
-    g,
-    g_hat,
-    alpha_L=alpha_L,
-    alpha_H=alpha_H,
-    beta_L=beta_L,
-    beta_H=beta_H,
-    gamma_L=gamma_L,
-    gamma_H=gamma_H,
-    t_L=t_L,
-    t_H=t_H,
-):
-    one = tf.constant(1.0, dtype=tf.float32)
-    return tf.math.add(
-        one,
-        tf.math.add(
-            tf.math.multiply(
-                alpha_L,
-                tf.math.multiply(
-                    sigmoid_bar(g, t_L, beta_L), sigmoid(g_hat, g, gamma_L)
-                ),
-            ),
-            tf.math.multiply(
-                alpha_H,
-                tf.math.multiply(
-                    sigmoid(g, t_H, beta_H), sigmoid_bar(g_hat, g, gamma_H)
-                ),
-            ),
-        ),
-    )
+def Pen(g, g_hat, alpha_L=alpha_L, alpha_H=alpha_H, beta_L=beta_L, beta_H=beta_H, gamma_L=gamma_L, gamma_H=gamma_H,
+        t_L=t_L, t_H=t_H):
+    return 1 + alpha_L * sigmoid_bar(g, t_L, beta_L) * sigmoid(g_hat, g,
+                                                               gamma_L) + alpha_H * sigmoid(
+        g, t_H, beta_H) * sigmoid_bar(g_hat, g, gamma_H)
 
 
-def gSE(
-    g,
-    g_hat,
-    alpha_L=alpha_L,
-    alpha_H=alpha_H,
-    beta_L=beta_L,
-    beta_H=beta_H,
-    gamma_L=gamma_L,
-    gamma_H=gamma_H,
-    t_L=t_L,
-    t_H=t_H,
-):
-    return tf.math.multiply(
-        tf.math.square(tf.subtract(tf.cast(g, tf.float32), g_hat)),
-        Pen(
-            tf.cast(g, tf.float32),
-            g_hat,
-            alpha_L,
-            alpha_H,
-            beta_L,
-            beta_H,
-            gamma_L,
-            gamma_H,
-            t_L,
-            t_H,
-        ),
-    )
+def gSE(g, g_hat, alpha_L=alpha_L, alpha_H=alpha_H, beta_L=beta_L, beta_H=beta_H, gamma_L=gamma_L, gamma_H=gamma_H,
+        t_L=t_L, t_H=t_H):
+    return tf.math.square(tf.cast(g, tf.float32) - g_hat) * Pen(tf.cast(g, tf.float32), g_hat, alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H)
 
 
-def gMSE(
-    g,
-    g_hat,
-    alpha_L=alpha_L,
-    alpha_H=alpha_H,
-    beta_L=beta_L,
-    beta_H=beta_H,
-    gamma_L=gamma_L,
-    gamma_H=gamma_H,
-    t_L=t_L,
-    t_H=t_H,
-):
-    return tf.math.reduce_mean(
-        gSE(g, g_hat, alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H)
-    )
+def gMSE(g, g_hat, alpha_L=alpha_L, alpha_H=alpha_H, beta_L=beta_L, beta_H=beta_H, gamma_L=gamma_L, gamma_H=gamma_H,
+         t_L=t_L, t_H=t_H):
+    return tf.math.reduce_mean(gSE(g, g_hat, alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H))
+
 
 
 if __name__ == "__main__":
