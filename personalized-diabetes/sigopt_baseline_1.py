@@ -74,27 +74,22 @@ if __name__ == "__main__":
         name=f"Baseline_1_{name}",
         type="offline",
         parameters=[
+            dict(name="dropout_rate", type="double", bounds=dict(min=0.0, max=0.2)),
             dict(
-                name="activation",
-                type="categorical",
-                categorical_values=["relu", "tanh"],
+                name="learning_rate", type="double", bounds=dict(min=0.0008, max=0.0015)
             ),
-            dict(name="dropout_rate", type="double", bounds=dict(min=0.0, max=0.5)),
-            dict(
-                name="learning_rate", type="double", bounds=dict(min=0.00001, max=0.01)
-            ),
-            dict(name="num_epochs", type="int", bounds=dict(min=1, max=10)),
-            dict(name="batch_size", type="int", bounds=dict(min=32, max=64)),
-            dict(name="filter_1", type="int", bounds=dict(min=1, max=10)),
-            dict(name="kernel_1", type="int", bounds=dict(min=5, max=10)),
+            dict(name="num_epochs", type="int", bounds=dict(min=8, max=12)),
+            dict(name="batch_size", type="categorical", categorical_values=['32', '64']),
+            dict(name="filter_1", type="int", bounds=dict(min=2, max=4)),
+            dict(name="kernel_1", type="int", bounds=dict(min=5, max=7)),
             dict(name="stride_1", type="int", bounds=dict(min=1, max=2)),
             dict(name="pool_size_1", type="int", bounds=dict(min=1, max=3)),
             dict(name="pool_stride_1", type="int", bounds=dict(min=1, max=2)),
-            dict(name="filter_2", type="int", bounds=dict(min=1, max=5)),
-            dict(name="kernel_2", type="int", bounds=dict(min=2, max=5)),
+            dict(name="filter_2", type="int", bounds=dict(min=5, max=7)),
+            dict(name="kernel_2", type="int", bounds=dict(min=4, max=6)),
             dict(name="stride_2", type="int", bounds=dict(min=1, max=2)),
-            dict(name="pool_size_2", type="int", bounds=dict(min=1, max=2)),
-            dict(name="pool_stride_2", type="int", bounds=dict(min=1, max=2)),
+            dict(name="pool_size_2", type="int", bounds=dict(min=5, max=6)),
+            dict(name="pool_stride_2", type="int", bounds=dict(min=3, max=5)),
         ],
         metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
         linear_constraints=[

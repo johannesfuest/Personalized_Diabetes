@@ -62,8 +62,8 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         base_model = \
                 sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
         # pretrain the model on all patient data
-        base_model.train_model(run.params.num_epochs_0,x_train_temp, x_test_temp, y_train_temp, y_test_temp,
-                          run.params.learning_rate_0, run.params.batch_size_0, True)
+        base_model.train_model(run.params.num_epochs_1,x_train_temp, x_test_temp, y_train_temp, y_test_temp,
+                          run.params.learning_rate_1, int(run.params.batch_size), True)
     for i in range(1, 31):
         with tf.device('/device:GPU:0'):
             #clone the base model
@@ -82,7 +82,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         # self-supervised training
         with tf.device('/device:GPU:0'):
             glucose_temp.train_model(run.params.num_epochs_1, x_train, x_test, y_train, y_test,
-                              run.params.learning_rate_1, run.params.batch_size_1, True)
+                              run.params.learning_rate_1, int(run.params.batch_size), True)
             # individualization
             glucose_temp.activate_finetune_mode()
         x_train = X_train[X_train['DeidentID'] == i]
@@ -95,7 +95,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         y_test = y_test.drop(columns=['DeidentID'])
         with tf.device('/device:GPU:0'):
             glucose_temp.train_model(run.params.num_epochs_2, x_train, x_test, y_train, y_test,
-                                run.params.learning_rate_2, run.params.batch_size_2, False)
+                                run.params.learning_rate_2, int(run.params.batch_size), False)
             # evaluate the model
             train_mse, train_gme = glucose_temp.evaluate_model(x_train, y_train)
             test_mse, test_gme = glucose_temp.evaluate_model(x_test, y_test)
@@ -141,28 +141,24 @@ if __name__ == '__main__':
     experiment = sigopt.create_experiment(
         name=f"Final_model_local_debug_{name}",
         type="offline",
-        parameters=[
-            dict(name="activation", type="categorical", categorical_values=["relu", "tanh"]),
-            dict(name="dropout_rate", type="double", bounds=dict(min=0.0, max=0.5)),
-            dict(name="learning_rate_0", type="double", bounds=dict(min=0.00001, max=0.01)),
-            dict(name='num_epochs_0', type="int", bounds=dict(min=1, max=10)),
-            dict(name='batch_size_0', type="int", bounds=dict(min=32, max=64)),
-            dict(name="learning_rate_1", type="double", bounds=dict(min=0.00001, max=0.01)),
-            dict(name='num_epochs_1', type="int", bounds=dict(min=1, max = 10)),
-            dict(name='batch_size_1', type = "int", bounds=dict(min=32, max=64)),
-            dict(name="learning_rate_2", type="double", bounds=dict(min=0.00001, max=0.01)),
-            dict(name='num_epochs_2', type="int", bounds=dict(min=1, max=10)),
-            dict(name='batch_size_2', type="int", bounds=dict(min=32, max=64)),
-            dict(name='filter_1', type = "int", bounds=dict(min=1, max=10)),
-            dict(name='kernel_1', type="int", bounds=dict(min=5, max=10)),
-            dict(name='stride_1', type="int", bounds=dict(min=1, max=2)),
-            dict(name='pool_size_1', type="int", bounds=dict(min=1, max=3)),
-            dict(name='pool_stride_1', type="int", bounds=dict(min=1, max=2)),
-            dict(name='filter_2', type="int", bounds=dict(min=1, max=5)),
-            dict(name='kernel_2', type="int", bounds=dict(min=2, max=5)),
-            dict(name='stride_2', type="int", bounds=dict(min=1, max=2)),
-            dict(name='pool_size_2', type="int", bounds=dict(min=1, max=2)),
-            dict(name='pool_stride_2', type="int", bounds=dict(min=1, max=2)),
+        parameters=[dict(name="dropout_rate", type="double", bounds=dict(min=0.0, max=0.2)),
+            dict(
+                name="learning_rate_1", type="double", bounds=dict(min=0.0001, max=0.002)
+            ),
+            dict(name="learning_rate_2", type="double", bounds=dict(min=0.0008, max=0.0015)),
+            dict(name="num_epochs_1", type="int", bounds=dict(min=5, max=15)),
+            dict(name="num_epochs_2", type="int", bounds=dict(min=8, max=12)),
+            dict(name="batch_size", type="categorical", categorical_values=['32', '64']),
+            dict(name="filter_1", type="int", bounds=dict(min=2, max=4)),
+            dict(name="kernel_1", type="int", bounds=dict(min=5, max=7)),
+            dict(name="stride_1", type="int", bounds=dict(min=1, max=2)),
+            dict(name="pool_size_1", type="int", bounds=dict(min=1, max=3)),
+            dict(name="pool_stride_1", type="int", bounds=dict(min=1, max=2)),
+            dict(name="filter_2", type="int", bounds=dict(min=5, max=7)),
+            dict(name="kernel_2", type="int", bounds=dict(min=4, max=6)),
+            dict(name="stride_2", type="int", bounds=dict(min=1, max=2)),
+            dict(name="pool_size_2", type="int", bounds=dict(min=5, max=6)),
+            dict(name="pool_stride_2", type="int", bounds=dict(min=3, max=5)),
         ],
         metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
         linear_constraints=[

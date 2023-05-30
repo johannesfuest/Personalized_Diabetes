@@ -23,6 +23,7 @@ class ConvLayer(tf.keras.layers.Layer):
             strides=run.params.stride_1,
             padding="valid",
             use_bias=False,
+            activation="relu",
         )
         self.norm1 = tfl.BatchNormalization(axis=2)
         self.pool1 = tfl.MaxPool1D(
@@ -37,6 +38,7 @@ class ConvLayer(tf.keras.layers.Layer):
             strides=run.params.stride_2,
             padding="valid",
             use_bias=False,
+            activation="relu",
         )
         self.norm2 = tfl.BatchNormalization(axis=2)
         self.pool2 = tfl.MaxPool1D(
