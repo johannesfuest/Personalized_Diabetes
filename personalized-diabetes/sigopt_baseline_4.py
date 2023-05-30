@@ -142,6 +142,12 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         train_gmse += weights_train[i] * train_gmses[i]
         test_mse += weights_test[i] * test_mses[i]
         test_gmse += weights_test[i] * test_gmses[i]
+    # cap all the metrics at 10000000
+    train_mse = min(train_mse, 10000000)
+    train_gmse = min(train_gmse, 10000000)
+    test_mse = min(test_mse, 10000000)
+    test_gmse = min(test_gmse, 10000000)
+
     train_mse /= sum(weights_train)
     train_gmse /= sum(weights_train)
     test_mse /= sum(weights_test)
