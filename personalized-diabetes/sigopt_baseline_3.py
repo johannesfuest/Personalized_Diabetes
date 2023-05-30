@@ -129,7 +129,7 @@ if __name__ == "__main__":
                 name="learning_rate", type="double", bounds=dict(min=0.0008, max=0.0015)
             ),
             dict(name="num_epochs", type="int", bounds=dict(min=8, max=12)),
-            dict(name="batch_size", type="categorical", categorical_values=[32,64]),
+            dict(name="batch_size", type="categorical", categorical_values=[int(32),int(64)]),
             dict(name="filter_1", type="int", bounds=dict(min=2, max=4)),
             dict(name="kernel_1", type="int", bounds=dict(min=5, max=7)),
             dict(name="stride_1", type="int", bounds=dict(min=1, max=2)),
