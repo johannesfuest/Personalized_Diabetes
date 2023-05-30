@@ -185,11 +185,9 @@ class GlucoseModel():
             batch_size
         )
         # Let's run this!
-        print("Training model...")
         self.model.fit(
             train_dataset, epochs=epochs, validation_data=test_dataset, verbose=0
         )
-        print("Done training model.")
 
     def evaluate_model(self, X_test, Y_test):
         """
@@ -207,6 +205,7 @@ class GlucoseModel():
         # Create new output layer which uses output of before-last layer as input
         output = tfl.Dense(units=1, activation=None)(self.model.layers[-2].output)
         # Create new model
+        #TODO: Check if this works
         finetune_model = tf.keras.Model(inputs=self.model.input, outputs=output)
         self.model = finetune_model
 
@@ -277,8 +276,6 @@ def get_train_test_split_all(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
         Y_train = pd.concat([Y_train, Y_train_temp])
         X_test = pd.concat([X_test, X_test_temp])
         Y_test = pd.concat([Y_test, Y_test_temp])
-    # X_train.drop(columns=['DeidentID'], inplace=True)
-    # X_test.drop(columns=['DeidentID'], inplace=True)
     return X_train, X_test, Y_train, Y_test
 
 

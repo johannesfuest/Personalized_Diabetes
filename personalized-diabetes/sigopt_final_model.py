@@ -97,15 +97,15 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
             glucose_temp.train_model(run.params.num_epochs_2, x_train, x_test, y_train, y_test,
                                 run.params.learning_rate_2, run.params.batch_size_2, False)
             # evaluate the model
-            train_mse, train_gme = glucose_temp.evaluate_model(x_train, y_train)
-            test_mse, test_gme = glucose_temp.evaluate_model(x_test, y_test)
+            train_gmse, train_mse = glucose_temp.evaluate_model(x_train, y_train)
+            test_gmse, test_mse = glucose_temp.evaluate_model(x_test, y_test)
         # log the model weights
         weights_train.append(len(x_train))
         weights_test.append(len(x_test))
         train_mses.append(train_mse)
-        train_gmses.append(train_gme)
+        train_gmses.append(train_gmse)
         test_mses.append(test_mse)
-        test_gmses.append(test_gme)
+        test_gmses.append(test_gmse)
     train_mse = 0
     train_gmse = 0
     test_mse = 0

@@ -18,7 +18,6 @@ def load_data(split: float, data_missingness: float):
     df_self = pd.read_csv(DATASET_SELF, skiprows=lambda i: i % 4 != 0)
     print("Basic data read")
     df_basic = pd.read_csv(DATASET, skiprows=lambda i: i % 2 != 0)
-
     print("Self data read")
     # delete a fraction of the df rows according to data_missingness
     df_basic = sf.apply_data_missingness(df_basic, data_missingness)
@@ -123,10 +122,6 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
             print("Train gMSE: ", train_gmse)
             print("Test MSE: ", test_mse)
             print("Test gMSE: ", test_gmse)
-
-
-        print(len(x_train))
-        print(len(x_test))
         # cap all the metrics at 10000000
         train_mse = min(train_mse, 10000000)
         train_gmse = min(train_gmse, 10000000)
