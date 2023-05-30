@@ -8,6 +8,14 @@ import tensorflow as tf
 import argparse
 
 
+
+
+# TODO: make GlucoseModel class inherit from Model class
+#TODO: set up new AWS instance with new limit
+#TODO: write experiment code for all models
+
+
+
 os.environ["SIGOPT_API_TOKEN"] = "CDLCFJJUWDYYKMDCXOISTWNALSSWLQQGBJHEBNVKXFQMFWNE"
 os.environ["SIGOPT_PROJECT"] = "personalized-diabetes"
 DATASET = 'basic_0.csv'
@@ -34,7 +42,8 @@ def load_data(split:float, data_missingness:float):
 def load_data_train_model(run, data, CONV_INPUT_LENGTH):
     run.log_dataset(name=DATASET)
     X_train, X_test, Y_train, Y_test, X_train_self, X_test_self, Y_train_self, Y_test_self = data
-    weights = []
+    weights_train = []
+    weights_test = []
     train_mses = []
     train_gmses = []
     test_mses = []
@@ -57,7 +66,12 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
                           run.params.learning_rate_0, run.params.batch_size_0, True)
     for i in range(1, 31):
         with tf.device('/device:GPU:0'):
-            model = base_model.__class__.from_config(base_model.get_config())
+            #clone the base model
+            glucose_temp = sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
+            model = tf.keras.models.clone_model(base_model.model)
+            model.set_weights(base_model.model.get_weights())
+            glucose_temp.set_model(model)
+
         # create the model
         x_train = X_train_self[X_train_self['DeidentID'] == i]
         x_test = X_test_self[X_test_self['DeidentID'] == i]
@@ -69,10 +83,10 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         y_test = y_test.drop(columns=['DeidentID'])
         # self-supervised training
         with tf.device('/device:GPU:0'):
-            model.train_model(run.params.num_epochs_1, x_train, x_test, y_train, y_test,
+            glucose_temp.train_model(run.params.num_epochs_1, x_train, x_test, y_train, y_test,
                               run.params.learning_rate_1, run.params.batch_size_1, True)
             # individualization
-            model.activate_finetune_mode()
+            glucose_temp.activate_finetune_mode()
         x_train = X_train[X_train['DeidentID'] == i]
         x_test = X_test[X_test['DeidentID'] == i]
         y_train = Y_train[Y_train['DeidentID'] == i]
@@ -82,13 +96,14 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         y_train = y_train.drop(columns=['DeidentID'])
         y_test = y_test.drop(columns=['DeidentID'])
         with tf.device('/device:GPU:0'):
-            model.train_model(run.params.num_epochs_2, x_train, x_test, y_train, y_test,
+            glucose_temp.train_model(run.params.num_epochs_2, x_train, x_test, y_train, y_test,
                                 run.params.learning_rate_2, run.params.batch_size_2, False)
             # evaluate the model
-            train_mse, train_gme = model.evaluate_model(x_train, y_train)
-            test_mse, test_gme = model.evaluate_model(x_test, y_test)
+            train_mse, train_gme = glucose_temp.evaluate_model(x_train, y_train)
+            test_mse, test_gme = glucose_temp.evaluate_model(x_test, y_test)
         # log the model weights
-        weights.append(len(x_train))
+        weights_train.append(len(x_train))
+        weights_test.append(len(x_test))
         train_mses.append(train_mse)
         train_gmses.append(train_gme)
         test_mses.append(test_mse)
@@ -98,14 +113,14 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
     test_mse = 0
     test_gmse = 0
     for i in range(30):
-        train_mse += weights[i] * train_mses[i]
-        train_gmse += weights[i] * train_gmses[i]
-        test_mse += weights[i] * test_mses[i]
-        test_gmse += weights[i] * test_gmses[i]
-    train_mse /= sum(weights)
-    train_gmse /= sum(weights)
-    test_mse /= sum(weights)
-    test_gmse /= sum(weights)
+        train_mse += weights_train[i] * train_mses[i]
+        train_gmse += weights_train[i] * train_gmses[i]
+        test_mse += weights_test[i] * test_mses[i]
+        test_gmse += weights_test[i] * test_gmses[i]
+    train_mse /= sum(weights_train)
+    train_gmse /= sum(weights_train)
+    test_mse /= sum(weights_test)
+    test_gmse /= sum(weights_test)
     run.log_metric("train gMSE", train_gmse)
     run.log_metric("train MSE", train_mse)
     run.log_metric("test gMSE", test_gmse)
@@ -126,7 +141,7 @@ if __name__ == '__main__':
     repo = git.Repo(search_parent_directories=True)
     sha = repo.head.object.hexsha
     experiment = sigopt.create_experiment(
-        name=f"Final_model_{name}",
+        name=f"Final_model_local_debug_{name}",
         type="offline",
         parameters=[
             dict(name="activation", type="categorical", categorical_values=["relu", "tanh"]),

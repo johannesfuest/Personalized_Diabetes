@@ -1,5 +1,5 @@
 import sys
-
+#TODO: make GlucoseModel a subclass of tf.keras.Model
 sys.path.append("..")
 import pandas as pd
 import tensorflow.keras.layers as tfl
@@ -11,14 +11,6 @@ import random
 import numpy as np
 
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
-
-
-class GlucoseLoss(tf.keras.losses.Loss):
-    def __init__(self):
-        super().__init__()
-
-    def call(self, y_true, y_pred):
-        pass
 
 
 class ConvLayer(tf.keras.layers.Layer):
@@ -97,7 +89,7 @@ class ConvLayer(tf.keras.layers.Layer):
         return flatten_out
 
 
-class GlucoseModel:
+class GlucoseModel():
     def get_model(self, CONV_INPUT_LENGTH: int, self_sup: bool):
         # define the input with specified shape
         input = tf.keras.Input(shape=(CONV_INPUT_LENGTH * 4, 1), batch_size=None)
@@ -161,6 +153,10 @@ class GlucoseModel:
     def __init__(self, CONV_INPUT_LENGTH: int, self_sup: bool, run):
         self.run = run
         self.model = self.get_model(CONV_INPUT_LENGTH, self_sup)
+
+    def set_model(self, model):
+        self.model = model
+
 
     def train_model(self, epochs, X_train, X_test, Y_train, Y_test, lr, batch_size, self_sup: bool):
         """
