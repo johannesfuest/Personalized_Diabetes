@@ -62,15 +62,15 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
                 False
             )
         # evaluate the model
-        train_mse, train_gme = model.evaluate_model(x_train, y_train)
-        test_mse, test_gme = model.evaluate_model(x_test, y_test)
+        train_gmse, train_mse = model.evaluate_model(x_train, y_train)
+        test_gmse, test_mse = model.evaluate_model(x_test, y_test)
         # log the model weights
         weights_train.append(len(x_train))
         weights_test.append(len(x_test))
         train_mses.append(train_mse)
-        train_gmses.append(train_gme)
+        train_gmses.append(train_gmse)
         test_mses.append(test_mse)
-        test_gmses.append(test_gme)
+        test_gmses.append(test_gmse)
     train_mse = 0
     train_gmse = 0
     test_mse = 0
