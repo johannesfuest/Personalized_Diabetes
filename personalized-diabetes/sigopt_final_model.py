@@ -97,8 +97,24 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
             glucose_temp.train_model(run.params.num_epochs_2, x_train, x_test, y_train, y_test,
                                 run.params.learning_rate_2, int(run.params.batch_size), False)
             # evaluate the model
-            train_mse, train_gme = glucose_temp.evaluate_model(x_train, y_train)
-            test_mse, test_gme = glucose_temp.evaluate_model(x_test, y_test)
+            train_gmse, train_mse = glucose_temp.evaluate_model(x_train, y_train)
+            test_gmse, test_mse = glucose_temp.evaluate_model(x_test, y_test)
+            print(f'len(x_train){len(x_train)})')
+            print(f'len(x_test){len(x_test)})')
+            print(f'train_mse{train_mse})')
+            print(f'train_gme{train_gmse})')
+            print(f'test_mse{test_mse})')
+            print(f'test_gme{test_gmse})')
+
+            print('Y-TRAIN:')
+            print(y_train.describe())
+            print('Y-HAT-TRAIN:')
+            print(pd.DataFrame(glucose_temp.model.predict(x_train)).describe())
+
+            print('Y-TEST:')
+            print(y_test.describe())
+            print('Y-HAT-TEST:')
+            print(pd.DataFrame(glucose_temp.model.predict(x_test)).describe())
         # log the model weights
         weights_train.append(len(x_train))
         weights_test.append(len(x_test))
