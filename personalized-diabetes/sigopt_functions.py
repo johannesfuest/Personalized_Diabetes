@@ -22,8 +22,8 @@ class GlucoseLoss(tf.keras.losses.Loss):
 
 
 class ConvLayer(tf.keras.layers.Layer):
-    def __init__(self, CONV_INPUT_LENGTH: int, run):
-        super(ConvLayer, self).__init__()
+    def __init__(self, CONV_INPUT_LENGTH: int, run, name=None):
+        super(ConvLayer, self).__init__(name=name)
         self.CONV_INPUT_LENGTH = CONV_INPUT_LENGTH
         self.conv1 = tfl.Conv1D(
             filters=run.params.filter_1,
