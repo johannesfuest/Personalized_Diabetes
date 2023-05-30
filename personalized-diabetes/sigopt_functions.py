@@ -18,33 +18,29 @@ class ConvLayer(tf.keras.layers.Layer):
         super(ConvLayer, self).__init__(**kwargs)
         self.CONV_INPUT_LENGTH = CONV_INPUT_LENGTH
         self.conv1 = tfl.Conv1D(
-            filters=run.params.filter_1,
-            kernel_size=run.params.kernel_1,
-            strides=run.params.stride_1,
+            filters=3,
+            kernel_size=5,
+            strides=1,
             padding="valid",
             use_bias=False,
         )
-        self.norm1 = tfl.BatchNormalization(axis=2)
         self.pool1 = tfl.MaxPool1D(
-            pool_size=run.params.pool_size_1,
-            strides=run.params.pool_stride_1,
+            pool_size=2,
+            strides=2,
             padding="valid",
         )
-        self.drop1 = tfl.Dropout(rate=run.params.dropout_rate)
         self.conv2 = tfl.Conv1D(
-            filters=run.params.filter_2,
-            kernel_size=run.params.kernel_2,
-            strides=run.params.stride_2,
+            filters=6,
+            kernel_size=5,
+            strides=1,
             padding="valid",
             use_bias=False,
         )
-        self.norm2 = tfl.BatchNormalization(axis=2)
         self.pool2 = tfl.MaxPool1D(
-            pool_size=run.params.pool_size_2,
-            strides=run.params.pool_stride_2,
+            pool_size=6,
+            strides=4,
             padding="valid",
         )
-        self.drop2 = tfl.Dropout(rate=run.params.dropout_rate)
         self.flatten = tfl.Flatten()
 
     def build(self, input_shape):
@@ -55,13 +51,9 @@ class ConvLayer(tf.keras.layers.Layer):
         config.update({
             'CONV_INPUT_LENGTH': self.CONV_INPUT_LENGTH,
             'conv1': self.conv1,
-            'norm1': self.norm1,
             'pool1': self.pool1,
-            'drop1': self.drop1,
             'conv2': self.conv2,
-            'norm2': self.norm2,
             'pool2': self.pool2,
-            'drop2': self.drop2,
             'flatten': self.flatten,
         })
         return config
@@ -70,22 +62,14 @@ class ConvLayer(tf.keras.layers.Layer):
         assert input.shape[1] == self.CONV_INPUT_LENGTH
         # 1st CONV
         conv1_out = self.conv1(input)
-        # Batch Norm
-        norm1_out = self.norm1(conv1_out)
         # Max Pool
-        pool1_out = self.pool1(norm1_out)
-        # Dropout
-        drop1_out = self.drop1(pool1_out)
+        pool1_out = self.pool1(conv1_out)
         # 2nd CONV
-        conv2_out = self.conv2(drop1_out)
-        # Batch Norm
-        norm2_out = self.norm2(conv2_out)
+        conv2_out = self.conv2(pool1_out)
         # Max Pool
-        pool2_out = self.pool2(norm2_out)
-        # Dropout
-        drop2_out = self.drop2(pool2_out)
+        pool2_out = self.pool2(conv2_out)
         # Now flatten the Matrix into a 1D vector (shape 1x204)
-        flatten_out = self.flatten(drop2_out)
+        flatten_out = self.flatten(conv2_out)
         return flatten_out
 
 
@@ -134,12 +118,12 @@ class GlucoseModel():
         # Now fully connect layers
         # Use multiples of two as recommended in class.
         FC1 = tfl.Dense(units=512, activation=self.run.params.activation)(post_conv)
-        DR1 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC1)
-        FC2 = tfl.Dense(units=256, activation=self.run.params.activation)(DR1)
-        DR2 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC2)
-        FC3 = tfl.Dense(units=128, activation=self.run.params.activation)(DR2)
-        DR3 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC3)
-        FC4 = tfl.Dense(units=64, activation=self.run.params.activation)(DR3)
+        #DR1 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC1)
+        FC2 = tfl.Dense(units=256, activation=self.run.params.activation)(FC1)
+        #DR2 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC2)
+        FC3 = tfl.Dense(units=128, activation=self.run.params.activation)(FC2)
+        #DR3 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC3)
+        FC4 = tfl.Dense(units=64, activation=self.run.params.activation)(FC3)
 
         # The output does NOT have an activation (regression task)
         # Last layer has 4*CONV_INPUT_LENGTH units if self-supervised, else 1 unit.

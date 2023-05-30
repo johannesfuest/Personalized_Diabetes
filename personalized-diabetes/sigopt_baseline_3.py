@@ -64,6 +64,21 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         # evaluate the model
         train_gmse, train_mse = model.evaluate_model(x_train, y_train)
         test_gmse, test_mse = model.evaluate_model(x_test, y_test)
+        print(f'len(x_train){len(x_train)})')
+        print(f'len(x_test){len(x_test)})')
+        print(f'train_mse{train_mse})')
+        print(f'train_gme{train_gmse})')
+        print(f'test_mse{test_mse})')
+        print(f'test_gme{test_gmse})')
+        print('Y-TEST:')
+        print(y_test.describe())
+        print('Y-HAT-TEST:')
+        print(pd.DataFrame(model.model.predict(x_test)).describe())
+
+        print('Y-TRAIN:')
+        print(y_train.describe())
+        print('Y-HAT-TRAIN:')
+        print(pd.DataFrame(model.model.predict(x_train)).describe())
         # log the model weights
         weights_train.append(len(x_train))
         weights_test.append(len(x_test))
