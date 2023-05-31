@@ -31,7 +31,7 @@ def load_data(split: float, missingness_modulo: int):
     return X_train, X_test, Y_train, Y_test
 
 
-def load_data_train_model(run, data, CONV_INPUT_LENGTH):
+def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
     run.log_dataset(name=DATASET)
     X_train, X_test, Y_train, Y_test = data
     # create the model
@@ -50,12 +50,52 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
             int(run.params.batch_size), False
         )
     run.log_metadata("sgd optimizer", "adam")
-    train_loss, train_mse = model.evaluate_model(X_train, Y_train)
-    test_loss, test_mse = model.evaluate_model(X_test, Y_test)
+    train_gmse, train_mse = model.evaluate_model(X_train, Y_train)
+    test_gmse, test_mse = model.evaluate_model(X_test, Y_test)
+
+    print(f'len(x_train){len(X_train)})')
+    print(f'len(x_test){len(X_test)})')
+    print(f'train_mse{train_mse})')
+    print(f'train_gme{train_gmse})')
+    print(f'test_mse{test_mse})')
+    print(f'test_gme{test_gmse})')
+
+    print('Y-TRAIN:')
+    print(Y_train.describe())
+    print('Y-HAT-TRAIN:')
+    train_preds = pd.DataFrame(model.model.predict(X_train))
+    print(train_preds.describe())
+    train_preds['y'] = Y_train
+    print(train_preds.columns)
+
+    train_preds['run'] = run.id
+    train_preds['experiment'] = run.experiment
+
+    test_preds = pd.DataFrame(model.model.predict(X_test))
+    test_preds['y'] = Y_test
+    test_preds['run'] = run.id
+    test_preds['experiment'] = run.experiment
+
+
+    if write_preds:
+        if not os.path.exists('preds'):
+            os.mkdir('preds')
+        train_preds.to_csv(os.path.join('preds', f'base_1_train_M{run.params.missingness_modulo}.csv'))
+        test_preds.to_csv(os.path.join('preds', f'base_1_test_M{run.params.missingness_modulo}.csv'))
+
+
+
+
+    print('Y-TEST:')
+    print(Y_test.describe())
+    print('Y-HAT-TEST:')
+    print(test_preds.describe())
+
+
     # log performance metrics
-    run.log_metric("train gMSE", train_loss)
+    run.log_metric("train gMSE", train_gmse)
     run.log_metric("train MSE", train_mse)
-    run.log_metric("test gMSE", test_loss)
+    run.log_metric("test gMSE", test_gmse)
     run.log_metric("test MSE", test_mse)
 
 
@@ -108,7 +148,7 @@ if __name__ == "__main__":
                     run.log_metadata(parameter, value)
                 run.log_metadata("commit", sha)
                 run.log_metadata("GPUs available", tf.config.list_physical_devices("GPU"))
-                load_data_train_model(run, data, CONV_INPUT_LENGTH)
+                load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=True)
     else: 
         data = load_data(0.8, 0.0)
         experiment = sigopt.create_experiment(

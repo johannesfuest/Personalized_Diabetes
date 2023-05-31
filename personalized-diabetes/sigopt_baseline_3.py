@@ -14,19 +14,19 @@ os.environ["SIGOPT_PROJECT"] = "personalized-diabetes"
 DATASET = "basic_0.csv"
 
 
-def load_data(split: float, data_missingness: float):
+def load_data(split: float, missingness_modulo: int):
     df_basic = pd.read_csv(DATASET)
     print("data read")
-    # delete a fraction of the df rows according to data_missingness
-    df_basic = sf.apply_data_missingness(df_basic, data_missingness)
+    # delete a fraction of the df rows according to missingness_modulo
 
     X_train, X_test, Y_train, Y_test = sf.get_train_test_split_search(
         df_basic, split, False
     )
+    X_train, Y_train = sf.apply_data_missingness(x_train=X_train, y_train=Y_train, missingness_modulo=missingness_modulo)
     return X_train, X_test, Y_train, Y_test
 
 
-def load_data_train_model(run, data, CONV_INPUT_LENGTH):
+def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds = False):
     run.log_dataset(name=DATASET)
     X_train, X_test, Y_train, Y_test = data
     weights_train = []
@@ -63,32 +63,53 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
                 False
             )
         # evaluate the model
-        train_mse, train_gme = model.evaluate_model(x_train, y_train)
-        test_mse, test_gme = model.evaluate_model(x_test, y_test)
+        train_gmse, train_mse = model.evaluate_model(x_train, y_train)
+        test_gmse, test_mse = model.evaluate_model(x_test, y_test)
 
         print(f'len(x_train){len(x_train)})')
         print(f'len(x_test){len(x_test)})')
         print(f'train_mse{train_mse})')
-        print(f'train_gme{train_gme})')
+        print(f'train_gme{train_gmse})')
         print(f'test_mse{test_mse})')
-        print(f'test_gme{test_gme})')
+        print(f'test_gme{test_gmse})')
 
         print('Y-TRAIN:')
         print(y_train.describe())
         print('Y-HAT-TRAIN:')
-        print(pd.DataFrame(model.model.predict(x_train)).describe())
+        train_preds = pd.DataFrame(model.model.predict(x_train))
+        print(train_preds.describe())
+        train_preds['y'] = y_train
+        print(train_preds.columns)
+
+        train_preds['run'] = run.id
+        train_preds['experiment'] = run.experiment
+
+        test_preds = pd.DataFrame(model.model.predict(x_test))
+        test_preds['y'] = y_test
+        test_preds['run'] = run.id
+        test_preds['experiment'] = run.experiment
+
+
+        if write_preds:
+            if not os.path.exists('preds'):
+                os.mkdir('preds')
+            train_preds.to_csv(os.path.join('preds', f'base_3_train_M{run.params.missingness_modulo}_D{i}.csv'))
+            test_preds.to_csv(os.path.join('preds', f'base_3_test_M{run.params.missingness_modulo}_D{i}.csv'))
+
+
+
 
         print('Y-TEST:')
         print(y_test.describe())
         print('Y-HAT-TEST:')
-        print(pd.DataFrame(model.model.predict(x_test)).describe())
+        print(test_preds.describe())
         # log the model weights
         weights_train.append(len(x_train))
         weights_test.append(len(x_test))
         train_mses.append(train_mse)
-        train_gmses.append(train_gme)
+        train_gmses.append(train_gmse)
         test_mses.append(test_mse)
-        test_gmses.append(test_gme)
+        test_gmses.append(test_gmse)
 
     train_gmses = np.clip(train_gmses, a_max=10000000)
     train_mses = np.clip(train_mses, a_max=10000000)
@@ -153,7 +174,7 @@ if __name__ == "__main__":
             name=f"Baseline_3_EXPERIMENT_{name}",
             type="grid",
             parameters=[
-                dict(name="data_missingness", type="double", grid=np.arange(0,1.0,0.1))
+                dict(name="missingness_modulo", type="int", grid=[1,2,4,10, 20, 50, 100, 200, 400])
             ],
             metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
             parallel_bandwidth=1,
@@ -162,13 +183,13 @@ if __name__ == "__main__":
 
         for run in experiment.loop():
             with run:
-                data = load_data(0.8, run.params.data_missingness)
+                data = load_data(0.8, run.params.missingness_modulo)
                 for parameter, value in fixed_hyperparameters.items():
                     run.params[parameter] = value
                     run.log_metadata(parameter, value)
                 run.log_metadata("commit", sha)
                 run.log_metadata("GPUs available", tf.config.list_physical_devices("GPU"))
-                load_data_train_model(run, data, CONV_INPUT_LENGTH)
+                load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=True)
 
 
     else:
