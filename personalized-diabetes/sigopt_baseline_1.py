@@ -17,8 +17,7 @@ DATASET = "basic_0.csv"
 def load_data(split: float, missingness_modulo: int):
     df_basic = pd.read_csv(DATASET)
     print("data read")
-    # delete a fraction of the df rows according to data_missingness
-    df_basic = df_basic.iloc[::2, :]
+
 
     X_train, X_test, Y_train, Y_test = sf.get_train_test_split_search(
         df_basic, split, False
