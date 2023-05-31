@@ -164,8 +164,8 @@ if __name__ == '__main__':
                 name="learning_rate_1", type="double", bounds=dict(min=0.0001, max=0.002)
             ),
             dict(name="learning_rate_2", type="double", bounds=dict(min=0.0008, max=0.0015)),
-            dict(name="num_epochs_1", type="int", bounds=dict(min=5, max=15)),
-            dict(name="num_epochs_2", type="int", bounds=dict(min=8, max=12)),
+            dict(name="num_epochs_1", type="int", bounds=dict(min=10, max=30)),
+            dict(name="num_epochs_2", type="int", bounds=dict(min=8, max=15)),
             dict(name="batch_size", type="categorical", categorical_values=['32', '64']),
             dict(name="filter_1", type="int", bounds=dict(min=2, max=4)),
             dict(name="kernel_1", type="int", bounds=dict(min=5, max=7)),
