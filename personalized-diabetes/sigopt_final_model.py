@@ -172,7 +172,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
     run.log_metric("train MSE", train_mse)
     run.log_metric("test gMSE", test_gmse)
     run.log_metric("test MSE", test_mse)
-
+    tf.keras.backend.clear_session()
 
 if __name__ == '__main__':
     CONV_INPUT_LENGTH = 288
