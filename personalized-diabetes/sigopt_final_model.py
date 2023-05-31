@@ -181,6 +181,7 @@ if __name__ == '__main__':
     CONV_INPUT_LENGTH = 288
     parser = argparse.ArgumentParser()
     parser.add_argument('--name', type=str, help='Specify an experiment name')
+    parser.add_argument('--experiment', action='store_true', help='Enable experiment mode')
     # set allow growth to true to avoid OOM errors
     os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
     args = parser.parse_args()
