@@ -192,22 +192,22 @@ if __name__ == '__main__':
     sha = repo.head.object.hexsha
     if args.experiment:
         fixed_hyperparameters = {
-        'dropout_rate':  0.0579,
-        'learning_rate_1': 0.0013164,
-        'learning_rate_2': 0.001362939,
-        'num_epochs_1':    13,
+        'dropout_rate':  0.04789191476471058,
+        'learning_rate_1': 0.0005718050423761871,
+        'learning_rate_2': 0.0010113473984109185,
+        'num_epochs_1':    11,
         'num_epochs_2':  10,
-        'batch_size':    64,
-        'filter_1':      4,
+        'batch_size':    16,
+        'filter_1':      3,
         'kernel_1':      6,
         'stride_1':      2,
-        'pool_size_1':   2,
+        'pool_size_1':   3,
         'pool_stride_1': 2,
         'filter_2':      7,
-        'kernel_2':      5,
+        'kernel_2':      6,
         'stride_2':      2,
         'pool_size_2':   6,
-        'pool_stride_2': 5,
+        'pool_stride_2': 4,
         }
         experiment = sigopt.create_experiment(
             name=f"FINAL_EXPERIMENT_{name}",
