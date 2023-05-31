@@ -6,6 +6,7 @@ import git
 import os
 import tensorflow as tf
 import argparse
+import numpy as np
 
 
 
@@ -152,56 +153,97 @@ if __name__ == '__main__':
     name = args.name
     if not name:
         name=''
-
-    data = load_data(0.8, 0.0)
+        
     repo = git.Repo(search_parent_directories=True)
     sha = repo.head.object.hexsha
-    experiment = sigopt.create_experiment(
-        name=f"Final_model_{name}",
-        type="offline",
-        parameters=[dict(name="dropout_rate", type="double", bounds=dict(min=0.0, max=0.2)),
-            dict(
-                name="learning_rate_1", type="double", bounds=dict(min=0.0001, max=0.002)
-            ),
-            dict(name="learning_rate_2", type="double", bounds=dict(min=0.0008, max=0.0015)),
-            dict(name="num_epochs_1", type="int", bounds=dict(min=5, max=15)),
-            dict(name="num_epochs_2", type="int", bounds=dict(min=8, max=12)),
-            dict(name="batch_size", type="categorical", categorical_values=['32', '64']),
-            dict(name="filter_1", type="int", bounds=dict(min=2, max=4)),
-            dict(name="kernel_1", type="int", bounds=dict(min=5, max=7)),
-            dict(name="stride_1", type="int", bounds=dict(min=1, max=2)),
-            dict(name="pool_size_1", type="int", bounds=dict(min=1, max=3)),
-            dict(name="pool_stride_1", type="int", bounds=dict(min=1, max=2)),
-            dict(name="filter_2", type="int", bounds=dict(min=5, max=7)),
-            dict(name="kernel_2", type="int", bounds=dict(min=4, max=6)),
-            dict(name="stride_2", type="int", bounds=dict(min=1, max=2)),
-            dict(name="pool_size_2", type="int", bounds=dict(min=5, max=6)),
-            dict(name="pool_stride_2", type="int", bounds=dict(min=3, max=5)),
-        ],
-        metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
-        linear_constraints=[
-            dict(type='greater_than', threshold=0, terms=[
-                dict(name='kernel_1', weight=1),
-                dict(name='stride_1', weight=-1)
-            ]),
-            dict(type='greater_than', threshold=0, terms=[
-                dict(name='kernel_2', weight=1),
-                dict(name='stride_2', weight=-1)
-            ]),
-            dict(type='greater_than', threshold=0, terms=[
-                dict(name='pool_size_1', weight=1),
-                dict(name='pool_stride_1', weight=-1)
-            ]),
-            dict(type='greater_than', threshold=0, terms=[
-                dict(name='pool_size_1', weight=1),
-                dict(name='pool_stride_1', weight=-1)
-            ])
-        ],
-        parallel_bandwidth=1,
-        budget=100,
-    )
-    for run in experiment.loop():
-        with run:
-            run.log_metadata('commit', sha)
-            run.log_metadata('GPUs available', tf.config.list_physical_devices('GPU'))
-            load_data_train_model(run,data, CONV_INPUT_LENGTH)
+    if args.experiment:
+        fixed_hyperparameters = {
+        'dropout_rate':  0.0579,
+        'learning_rate_1': 0.0013164,
+        'learning_rate_2': 0.001362939,
+        'num_epochs_1':    13,
+        'num_epochs_2':  10,
+        'batch_size':    64,
+        'filter_1':      4,
+        'kernel_1':      6,
+        'stride_1':      2,
+        'pool_size_1':   2,
+        'pool_stride_1': 2,
+        'filter_2':      7,
+        'kernel_2':      5,
+        'stride_2':      2,
+        'pool_size_2':   6,
+        'pool_stride_2': 5,
+        }
+        experiment = sigopt.create_experiment(
+            name=f"FINAL_EXPERIMETN_{name}",
+            type="grid",
+            parameters=[
+                dict(name="data_missingness", type="double", grid=np.arange(0,1.1,0.1))
+            ],
+            metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
+            parallel_bandwidth=1,
+            #budget=11,
+        )
+
+        for run in experiment.loop():
+            with run:
+                data = load_data(0.8, run.params.data_missingness)
+                for parameter, value in fixed_hyperparameters.items():
+                    run.params[parameter] = value
+                    run.log_metadata(parameter, value)
+                run.log_metadata("commit", sha)
+                run.log_metadata("GPUs available", tf.config.list_physical_devices("GPU"))
+                load_data_train_model(run, data, CONV_INPUT_LENGTH)
+    else:
+
+        data = load_data(0.8, 0.0)
+        experiment = sigopt.create_experiment(
+            name=f"Final_model_{name}",
+            type="offline",
+            parameters=[dict(name="dropout_rate", type="double", bounds=dict(min=0.0, max=0.2)),
+                dict(
+                    name="learning_rate_1", type="double", bounds=dict(min=0.0001, max=0.002)
+                ),
+                dict(name="learning_rate_2", type="double", bounds=dict(min=0.0008, max=0.0015)),
+                dict(name="num_epochs_1", type="int", bounds=dict(min=5, max=15)),
+                dict(name="num_epochs_2", type="int", bounds=dict(min=8, max=12)),
+                dict(name="batch_size", type="categorical", categorical_values=['32', '64']),
+                dict(name="filter_1", type="int", bounds=dict(min=2, max=4)),
+                dict(name="kernel_1", type="int", bounds=dict(min=5, max=7)),
+                dict(name="stride_1", type="int", bounds=dict(min=1, max=2)),
+                dict(name="pool_size_1", type="int", bounds=dict(min=1, max=3)),
+                dict(name="pool_stride_1", type="int", bounds=dict(min=1, max=2)),
+                dict(name="filter_2", type="int", bounds=dict(min=5, max=7)),
+                dict(name="kernel_2", type="int", bounds=dict(min=4, max=6)),
+                dict(name="stride_2", type="int", bounds=dict(min=1, max=2)),
+                dict(name="pool_size_2", type="int", bounds=dict(min=5, max=6)),
+                dict(name="pool_stride_2", type="int", bounds=dict(min=3, max=5)),
+            ],
+            metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
+            linear_constraints=[
+                dict(type='greater_than', threshold=0, terms=[
+                    dict(name='kernel_1', weight=1),
+                    dict(name='stride_1', weight=-1)
+                ]),
+                dict(type='greater_than', threshold=0, terms=[
+                    dict(name='kernel_2', weight=1),
+                    dict(name='stride_2', weight=-1)
+                ]),
+                dict(type='greater_than', threshold=0, terms=[
+                    dict(name='pool_size_1', weight=1),
+                    dict(name='pool_stride_1', weight=-1)
+                ]),
+                dict(type='greater_than', threshold=0, terms=[
+                    dict(name='pool_size_1', weight=1),
+                    dict(name='pool_stride_1', weight=-1)
+                ])
+            ],
+            parallel_bandwidth=1,
+            budget=100,
+        )
+        for run in experiment.loop():
+            with run:
+                run.log_metadata('commit', sha)
+                run.log_metadata('GPUs available', tf.config.list_physical_devices('GPU'))
+                load_data_train_model(run,data, CONV_INPUT_LENGTH)

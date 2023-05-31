@@ -111,7 +111,6 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
 
 if __name__ == "__main__":
     CONV_INPUT_LENGTH = 288
-    # This is only relevant when setting the "experiment"-flag!
     parser = argparse.ArgumentParser()
     parser.add_argument('--name', type=str, help='Specify an experiment name')
     parser.add_argument('--experiment', action='store_true', help='Enable experiment mode')
@@ -126,7 +125,7 @@ if __name__ == "__main__":
     if args.experiment: 
         fixed_hyperparameters = {
         'dropout_rate':  0.0579,
-        'learning_rate': 0.0013164,
+        'learning_rate': 0.001362939,
         'num_epochs':    10,
         'batch_size':    64,
         'filter_1':      4,
