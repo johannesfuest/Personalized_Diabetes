@@ -56,6 +56,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
     run.log_metric("train MSE", train_mse)
     run.log_metric("test gMSE", test_loss)
     run.log_metric("test MSE", test_mse)
+    tf.keras.backend.clear_session()
 
 
 if __name__ == "__main__":
