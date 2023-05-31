@@ -148,6 +148,9 @@ if __name__ == '__main__':
     parser.add_argument('--name', type=str, help='Specify an experiment name')
     # set allow growth to true to avoid OOM errors
     os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    sess = tf.Session(config=config)
     args = parser.parse_args()
     name = args.name
     if not name:
@@ -166,7 +169,7 @@ if __name__ == '__main__':
             dict(name="learning_rate_2", type="double", bounds=dict(min=0.0008, max=0.0015)),
             dict(name="num_epochs_1", type="int", bounds=dict(min=10, max=30)),
             dict(name="num_epochs_2", type="int", bounds=dict(min=8, max=15)),
-            dict(name="batch_size", type="categorical", categorical_values=['32', '64']),
+            dict(name="batch_size", type="categorical", categorical_values=['16', '32']),
             dict(name="filter_1", type="int", bounds=dict(min=2, max=4)),
             dict(name="kernel_1", type="int", bounds=dict(min=5, max=7)),
             dict(name="stride_1", type="int", bounds=dict(min=1, max=2)),
