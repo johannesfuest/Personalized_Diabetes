@@ -148,9 +148,6 @@ if __name__ == '__main__':
     parser.add_argument('--name', type=str, help='Specify an experiment name')
     # set allow growth to true to avoid OOM errors
     os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    sess = tf.Session(config=config)
     args = parser.parse_args()
     name = args.name
     if not name:
