@@ -47,6 +47,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
             Y_test,
             run.params.learning_rate,
             run.params.batch_size,
+            False
         )
     run.log_metadata("sgd optimizer", "adam")
     train_loss, train_mse = model.evaluate_model(X_train, Y_train)
