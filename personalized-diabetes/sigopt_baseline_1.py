@@ -14,16 +14,16 @@ os.environ["SIGOPT_PROJECT"] = "personalized-diabetes"
 DATASET = "basic_0.csv"
 
 
-def load_data(split: float, data_missingness: float):
+def load_data(split: float, missingness_modulo: int):
     df_basic = pd.read_csv(DATASET)
     print("data read")
     # delete a fraction of the df rows according to data_missingness
-    df_basic = sf.apply_data_missingness(df_basic, data_missingness)
     df_basic = df_basic.iloc[::2, :]
 
     X_train, X_test, Y_train, Y_test = sf.get_train_test_split_search(
         df_basic, split, False
     )
+    X_train, Y_train = sf.apply_data_missingness(x_train = X_train, y_train = Y_train, missingness_modulo=missingness_modulo)
     X_train.drop(columns=["DeidentID"], inplace=True)
     X_test.drop(columns=["DeidentID"], inplace=True)
     Y_train.drop(columns=["DeidentID"], inplace=True)
@@ -90,10 +90,10 @@ if __name__ == "__main__":
          'pool_stride_2': 5,
          }
         experiment = sigopt.create_experiment(
-            name=f"Baseline_1_EXPERIMETN_{name}",
+            name=f"Baseline_1_EXPERIMENT_{name}",
             type="grid",
             parameters=[
-                dict(name="data_missingness", type="double", grid=np.arange(0,1.0,0.1))
+                dict(name="missingness_modulo", type="int", grid=[1,2,4,10, 20, 50, 100, 200, 400])
             ],
             metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
             parallel_bandwidth=1,
@@ -102,7 +102,7 @@ if __name__ == "__main__":
 
         for run in experiment.loop():
             with run:
-                data = load_data(0.8, run.params.data_missingness)
+                data = load_data(0.8, run.params.missingness_modulo)
                 for parameter, value in fixed_hyperparameters.items():
                     run.params[parameter] = value
                     run.log_metadata(parameter, value)

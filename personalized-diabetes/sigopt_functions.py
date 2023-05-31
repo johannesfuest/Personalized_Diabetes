@@ -291,24 +291,15 @@ def get_train_test_split_search(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
     return get_train_test_split_all(df, TRAIN_TEST_SPLIT, self_sup)
 
 
-def apply_data_missingness(df, missingness: float):
-    if missingness == 0.0:
-        return df
-    n = df.shape[0]
-    p = 1 - missingness
-    true_count = int(n * p)
-    chosen_idx = [False] * n
+def apply_data_missingness(x_train, y_train, missingness_modulo: int):
 
-    # Generate random indices for True entries
-    true_indices = random.sample(range(n), true_count)
+    assert x_train.shape[0] == y_train.shape[0]
 
-    # Set True entries at the randomly selected indices
-    for index in true_indices:
-        chosen_idx[index] = True
+    x_train = x_train[::missingness_modulo]
+    y_train = y_train[::missingness_modulo]
 
-    df = df.iloc[chosen_idx]
-    return df
-
+    assert x_train.shape[0] == y_train.shape[0]
+    return x_train, y_train
 
 def xi(x, a, epsilon):
     two = tf.constant(2, dtype=tf.float32)

@@ -89,6 +89,16 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH):
         train_gmses.append(train_gme)
         test_mses.append(test_mse)
         test_gmses.append(test_gme)
+
+    train_gmses = np.clip(train_gmses, a_max=10000000)
+    train_mses = np.clip(train_mses, a_max=10000000)
+    test_gmses = np.clip(test_gmses, a_max=10000000)
+    test_mses = np.clip(test_mses, a_max=10000000)
+    run.log_metric('u train gMSE', np.mean(train_gmses))
+    run.log_metric('u train MSE', np.mean(train_mses))
+    run.log_metric('u test gMSE', np.mean(test_gmses))
+    run.log_metric('u test gMSE', np.mean(test_mses))
+    
     train_mse = 0
     train_gmse = 0
     test_mse = 0
