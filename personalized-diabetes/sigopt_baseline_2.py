@@ -138,7 +138,7 @@ if __name__ == "__main__":
         'pool_stride_2': 5,
         }
         experiment = sigopt.create_experiment(
-            name=f"Baseline_2_EXPERIMETN_{name}",
+            name=f"Baseline_2_EXPERIMENT_{name}",
             type="grid",
             parameters=[
                 dict(name="data_missingness", type="double", grid=np.arange(0,1.0,0.1))
