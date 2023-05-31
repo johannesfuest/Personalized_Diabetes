@@ -93,7 +93,7 @@ if __name__ == "__main__":
             name=f"Baseline_1_EXPERIMETN_{name}",
             type="grid",
             parameters=[
-                dict(name="data_missingness", type="double", grid=np.arange(0,1.1,0.1))
+                dict(name="data_missingness", type="double", grid=np.arange(0,1.0,0.1))
             ],
             metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
             parallel_bandwidth=1,
