@@ -18,7 +18,7 @@ def load_data(split: float, data_missingness: float):
     print("data read")
     # delete a fraction of the df rows according to data_missingness
     df_basic = sf.apply_data_missingness(df_basic, data_missingness)
-    df_basic = df_basic.iloc[::2, :]
+    #df_basic = df_basic.iloc[::2, :]
 
     X_train, X_test, Y_train, Y_test = sf.get_train_test_split_search(
         df_basic, split, False

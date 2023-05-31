@@ -23,13 +23,13 @@ DATASET_SELF = 'self_0.csv'
 
 def load_data(split:float, data_missingness:float):
 
-    df_basic = pd.read_csv(DATASET, skiprows=lambda i: i % 2 != 0)
+    #df_basic = pd.read_csv(DATASET, skiprows=lambda i: i % 2 != 0)
+    df_basic = pd.read_csv(DATASET)
     print('Basic data read')
-    df_self = pd.read_csv(DATASET_SELF, skiprows=lambda i: i % 4 != 0)
+    #df_self = pd.read_csv(DATASET_SELF, skiprows=lambda i: i % 4 != 0)
+    df_self = pd.read_csv(DATASET_SELF)
     print('Self data read')
-    df_basic = df_basic.sample(n=1000, random_state=1)
 
-    df_self = df_self.sample(n=1000, random_state=1)
     # delete a fraction of the df rows according to data_missingness
     df_basic = sf.apply_data_missingness(df_basic, data_missingness)
     X_train, X_test, Y_train, Y_test = \
