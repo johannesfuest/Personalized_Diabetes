@@ -28,9 +28,6 @@ def load_data(split:float, missingness_modulo:int):
     print('Basic data read')
     df_self = pd.read_csv(DATASET_SELF)
     print('Self data read')
-    df_basic = df_basic.sample(n=1000, random_state=1)
-
-    df_self = df_self.sample(n=1000, random_state=1)
     # delete a fraction of the df rows according to data_missingness
     X_train, X_test, Y_train, Y_test = \
         sf.get_train_test_split_search(df_basic, split, False)
@@ -214,7 +211,7 @@ if __name__ == '__main__':
             name=f"FINAL_EXPERIMENT_{name}",
             type="grid",
             parameters=[
-                dict(name="missingness_modulo", type="int", grid=[10, 20, 50, 100, 200, 400])
+                dict(name="missingness_modulo", type="int", grid=[1,2,4,10, 20, 50, 100, 200, 400])
             ],
             metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
             parallel_bandwidth=1,
