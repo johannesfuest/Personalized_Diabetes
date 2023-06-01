@@ -208,7 +208,8 @@ class GlucoseModel():
 
     def activate_finetune_mode(self):
         # Create new output layer which uses output of before-last layer as input
-        output = tfl.Dense(units=1, activation=None)(self.model.layers[-2].output)
+        tflast = tfl.Dense(units=1, activation=None)(self.model.layers[-2].output)
+        output = tfl.ReLU(max_value=401)(tflast)
         # Create new model
         finetune_model = tf.keras.Model(inputs=self.model.input, outputs=output)
         self.model = finetune_model
