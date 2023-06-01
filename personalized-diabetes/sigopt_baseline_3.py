@@ -81,6 +81,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds = False):
         train_preds['run'] = run.id
         train_preds['experiment'] = run.experiment
         print('Y-TEST:')
+        print(y_test.columns)
         print(y_test.describe())
         print('Y-HAT-TEST:')
         test_preds = pd.DataFrame(model.model.predict(x_test))
