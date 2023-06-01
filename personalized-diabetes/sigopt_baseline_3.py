@@ -76,20 +76,14 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds = False):
         print('Y-HAT-TRAIN:')
         train_preds = pd.DataFrame(model.model.predict(x_train))
         train_preds['y'] = y_train['CGM']
-        # make y column numeric
-        train_preds['y'] = pd.to_numeric(train_preds['y'], errors='coerce')
-        print(train_preds.describe())
-
         train_preds['run'] = run.id
         train_preds['experiment'] = run.experiment
+        print(train_preds.describe())
         print('Y-TEST:')
-        print(y_test.columns)
         print(y_test.describe())
         print('Y-HAT-TEST:')
         test_preds = pd.DataFrame(model.model.predict(x_test))
         test_preds['y'] = y_test['CGM']
-        # make y column numeric
-        test_preds['y'] = pd.to_numeric(test_preds['y'], errors='coerce')
         test_preds['run'] = run.id
         test_preds['experiment'] = run.experiment
         print(test_preds.describe())
