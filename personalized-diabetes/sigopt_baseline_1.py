@@ -64,6 +64,9 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
     print('Y-HAT-TRAIN:')
     train_preds = pd.DataFrame(model.model.predict(X_train))
     print(train_preds.describe())
+    print(type(Y_train))
+    print(Y_train)
+    print(Y_train.columns)
     train_preds['y'] = Y_train['CGM']
     print(train_preds.columns)
 
@@ -74,7 +77,9 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
     test_preds['y'] = Y_test['CGM']
     test_preds['run'] = run.id
     test_preds['experiment'] = run.experiment
-
+    print(type(Y_test))
+    print(Y_test)
+    print(Y_test.columns)
 
     if write_preds:
         if not os.path.exists('preds'):
