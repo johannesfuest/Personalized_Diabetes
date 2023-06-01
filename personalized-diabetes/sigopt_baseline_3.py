@@ -80,6 +80,9 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds = False):
         print(train_preds.describe())
         train_preds['y'] = y_train['CGM']
         print(train_preds.columns)
+        print(type(Y_train))
+        print(Y_train)
+        print(Y_train.columns)
 
         train_preds['run'] = run.id
         train_preds['experiment'] = run.experiment
@@ -88,7 +91,9 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds = False):
         test_preds['y'] = y_test['CGM']
         test_preds['run'] = run.id
         test_preds['experiment'] = run.experiment
-
+        print(type(Y_test))
+        print(Y_test)
+        print(Y_test.columns)
 
         if write_preds:
             if not os.path.exists('preds'):
