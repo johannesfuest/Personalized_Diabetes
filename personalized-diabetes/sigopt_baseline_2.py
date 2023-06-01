@@ -111,17 +111,19 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
     print(Y_train.describe())
     print('Y-HAT-TRAIN:')
     train_preds = pd.DataFrame(model.model.predict(X_train))
-    print(train_preds.describe())
     train_preds['y'] = Y_train['CGM']
-    print(train_preds.columns)
+    print(train_preds.describe())
 
     train_preds['run'] = run.id
     train_preds['experiment'] = run.experiment
-
+    print('Y-TEST:')
+    print(Y_test.describe())
+    print('Y-HAT-TEST:')
     test_preds = pd.DataFrame(model.model.predict(X_test))
     test_preds['y'] = Y_test['CGM']
     test_preds['run'] = run.id
     test_preds['experiment'] = run.experiment
+    print(test_preds.describe())
 
 
     if write_preds:
@@ -129,15 +131,6 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
             os.mkdir('preds')
         train_preds.to_csv(os.path.join('preds', f'base_2_train_M{run.params.missingness_modulo}.csv'))
         test_preds.to_csv(os.path.join('preds', f'base_2_test_M{run.params.missingness_modulo}.csv'))
-
-
-
-
-    print('Y-TEST:')
-    print(Y_test.describe())
-    print('Y-HAT-TEST:')
-    print(test_preds.describe())
-
 
     # log performance metrics
     run.log_metric("train gMSE", train_gmse)

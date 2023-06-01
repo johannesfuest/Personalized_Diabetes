@@ -66,8 +66,6 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds = False):
         train_gmse, train_mse = model.evaluate_model(x_train, y_train)
         test_gmse, test_mse = model.evaluate_model(x_test, y_test)
 
-        print(f'len(x_train){len(x_train)})')
-        print(f'len(x_test){len(x_test)})')
         print(f'train_mse{train_mse})')
         print(f'train_gme{train_gmse})')
         print(f'test_mse{test_mse})')
@@ -77,23 +75,19 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds = False):
         print(y_train.describe())
         print('Y-HAT-TRAIN:')
         train_preds = pd.DataFrame(model.model.predict(x_train))
-        print(train_preds.describe())
         train_preds['y'] = y_train['CGM']
-        print(train_preds.columns)
-        print(type(Y_train))
-        print(Y_train)
-        print(Y_train.columns)
+        print(train_preds.describe())
 
         train_preds['run'] = run.id
         train_preds['experiment'] = run.experiment
-
+        print('Y-TEST:')
+        print(y_test.describe())
+        print('Y-HAT-TEST:')
         test_preds = pd.DataFrame(model.model.predict(x_test))
         test_preds['y'] = y_test['CGM']
         test_preds['run'] = run.id
         test_preds['experiment'] = run.experiment
-        print(type(Y_test))
-        print(Y_test)
-        print(Y_test.columns)
+        print(test_preds.describe())
 
         if write_preds:
             if not os.path.exists('preds'):
@@ -101,13 +95,6 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds = False):
             train_preds.to_csv(os.path.join('preds', f'base_3_train_M{run.params.missingness_modulo}_D{i}.csv'))
             test_preds.to_csv(os.path.join('preds', f'base_3_test_M{run.params.missingness_modulo}_D{i}.csv'))
 
-
-
-
-        print('Y-TEST:')
-        print(y_test.describe())
-        print('Y-HAT-TEST:')
-        print(test_preds.describe())
         # log the model weights
         weights_train.append(len(x_train))
         weights_test.append(len(x_test))
