@@ -113,14 +113,15 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
         print('Y-HAT-TRAIN:')
         train_preds = pd.DataFrame(glucose_temp.model.predict(x_train))
         print(train_preds.describe())
-        train_preds['y'] = y_train
+        train_preds['y'] = y_train['CGM']
         print(train_preds.columns)
 
         train_preds['run'] = run.id
         train_preds['experiment'] = run.experiment
 
         test_preds = pd.DataFrame(glucose_temp.model.predict(x_test))
-        test_preds['y'] = y_test
+        # add y_test column top test_preds
+        test_preds['y'] = y_test['CGM']
         test_preds['run'] = run.id
         test_preds['experiment'] = run.experiment
 

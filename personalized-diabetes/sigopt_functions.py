@@ -148,7 +148,8 @@ class GlucoseModel():
         if self_sup:
             output = tfl.Dense(units=4 * CONV_INPUT_LENGTH, activation=None)(FC4)
         else:
-            output = tfl.Dense(units=1, activation=None)(FC4)
+            FC5 = tfl.Dense(units=1, activation='relu')(FC4)
+            output = tfl.ReLU(max_value=401)(FC5)
         model = tf.keras.Model(inputs=input, outputs=output)
         return model
 
