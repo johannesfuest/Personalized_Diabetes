@@ -112,7 +112,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
         print(y_train.describe())
         print('Y-HAT-TRAIN:')
         train_preds = pd.DataFrame(glucose_temp.model.predict(x_train))
-        train_preds['y'] = y_train['CGM']
+        train_preds['y'] = y_train['CGM'].values
         print(train_preds.describe())
 
         train_preds['run'] = run.id
@@ -121,7 +121,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
         print(y_test.describe())
         print('Y-HAT-TEST:')
         test_preds = pd.DataFrame(glucose_temp.model.predict(x_test))
-        test_preds['y'] = y_test['CGM']
+        test_preds['y'] = y_test['CGM'].values
         test_preds['run'] = run.id
         test_preds['experiment'] = run.experiment
         print(test_preds.describe())
