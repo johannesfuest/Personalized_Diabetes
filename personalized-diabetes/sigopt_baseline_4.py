@@ -1,12 +1,12 @@
 # Python file for running baseline 4 (individualization, self-supervised data) using sigopt
+import argparse
+import git
+import numpy as np
+import os
 import pandas as pd
 import sigopt_functions as sf
 import sigopt
-import git
-import os
 import tensorflow as tf
-import argparse
-import numpy as np
 
 
 os.environ["SIGOPT_API_TOKEN"] = "CDLCFJJUWDYYKMDCXOISTWNALSSWLQQGBJHEBNVKXFQMFWNE"
@@ -227,7 +227,7 @@ if __name__ == "__main__":
             name=f"Baseline_4_EXPERIMENT_{name}",
             type="grid",
             parameters=[
-                dict(name="missingness_modulo", type="int", grid=[1,2,4,10, 20, 50, 100, 200, 400])
+                dict(name="missingness_modulo", type="int", grid=[1,2,4,10, 20, 50, 100, 200, 400, 800, 1000])
             ],
             metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
             parallel_bandwidth=1,
@@ -245,7 +245,7 @@ if __name__ == "__main__":
                 load_data_train_model(run, data, CONV_INPUT_LENGTH)
     else:
         
-        data = load_data(0.8, 0.0)
+        data = load_data(0.8, 1)
         experiment = sigopt.create_experiment(
             name=f"Baseline_4_{name}",
             type="offline",

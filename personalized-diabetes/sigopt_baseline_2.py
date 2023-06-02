@@ -1,12 +1,11 @@
 # Python file for running baseline 2 (no individualization, self-supervised data) using sigopt
+import argparse
+import git
+import os
 import pandas as pd
 import sigopt_functions as sf
 import sigopt
-import git
-import os
 import tensorflow as tf
-import argparse
-import numpy as np
 
 
 os.environ["SIGOPT_API_TOKEN"] = "CDLCFJJUWDYYKMDCXOISTWNALSSWLQQGBJHEBNVKXFQMFWNE"
@@ -193,7 +192,7 @@ if __name__ == "__main__":
                 load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=True)
     else:
 
-        data = load_data(0.8, 0.0)
+        data = load_data(0.8, 1)
         experiment = sigopt.create_experiment(
             name=f"Baseline_2_{name}",
             type="offline",

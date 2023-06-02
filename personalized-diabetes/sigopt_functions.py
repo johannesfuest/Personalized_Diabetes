@@ -1,19 +1,23 @@
-import sys
-#TODO: make GlucoseModel a subclass of tf.keras.Model
-sys.path.append("..")
 import pandas as pd
-import tensorflow.keras.layers as tfl
+import sys
 import tensorflow as tf
+import tensorflow.keras.layers as tfl
+import warnings
+
 
 pd.set_option("display.max_rows", 1000)
-import warnings
-import random
-import numpy as np
-
+sys.path.append("..")
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
 
 class ConvLayer(tf.keras.layers.Layer):
+    """
+    Custom subclass on tf.keras.layers.Layer to implement a convolutional layer layer specific to our problem. Each layer
+    contains two 1D Convolutions with max pooling, dropout and batchnorm between.
+    Each layer is further defined by the following parameters:
+    - CONV_INPUT_LENGTH: the length of the input to the convolutional layer (288 in our case due to 5 minute intervals)
+    - run: the SigOpt run object containing the parameters for the layer
+    """
     def __init__(self, CONV_INPUT_LENGTH: int, run, **kwargs):
         super(ConvLayer, self).__init__(**kwargs)
         self.CONV_INPUT_LENGTH = CONV_INPUT_LENGTH
@@ -92,7 +96,16 @@ class ConvLayer(tf.keras.layers.Layer):
 
 
 class GlucoseModel():
+    """
+    Class to define the model architecture for the glucose prediction model.
+    """
     def get_model(self, CONV_INPUT_LENGTH: int, self_sup: bool):
+        """
+        Function to define the model architecture for the glucose prediction model.
+        :param CONV_INPUT_LENGTH:
+        :param self_sup: whether the model should be trained in a self-supervised manner (changes only last layer)
+        :return: a tf.keras.Model object containing the model architecture
+        """
         # define the input with specified shape
         input = tf.keras.Input(shape=(CONV_INPUT_LENGTH * 4, 1), batch_size=None)
         # Calculate batchsize of current run.
@@ -207,10 +220,13 @@ class GlucoseModel():
         return metrics
 
     def activate_finetune_mode(self):
-        # Create new output layer which uses output of before-last layer as input
+        """
+        A function that activates finetune mode for the model. This means that the last layer is removed and a new one
+        that predicts a single value instead of a whole row of predictors is added.
+        :return: None, only changes the model
+        """
         tflast = tfl.Dense(units=1, activation=None)(self.model.layers[-2].output)
         output = tfl.ReLU(max_value=401)(tflast)
-        # Create new model
         finetune_model = tf.keras.Model(inputs=self.model.input, outputs=output)
         self.model = finetune_model
 
@@ -269,6 +285,13 @@ def get_train_test_split(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
 
 
 def get_train_test_split_all(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
+    """
+    A function that takes a dataframe and returns a temporal train and test split using the given argument to determine
+    :param df: The dataframe to be split
+    :param TRAIN_TEST_SPLIT: The split to be used as a number between 0 and 1
+    :param self_sup: Whether the dataframe is self-supervised or not
+    :return: X_train, X_test, Y_train, Y_test according to the given split
+    """
     X_train = pd.DataFrame()
     Y_train = pd.DataFrame()
     X_test = pd.DataFrame()
@@ -287,6 +310,15 @@ def get_train_test_split_all(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
 
 
 def get_train_test_split_search(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
+    """
+    A function that takes a dataframe and returns a temporal train and test split using the given argument to determine.
+    To avoid data snooping in the grid search, this function first removes the testing portion of the data and then
+    performs the train-test split.
+    :param df: The dataframe to be split
+    :param TRAIN_TEST_SPLIT: The split to be used as a number between 0 and 1
+    :param self_sup: Whether the dataframe is self-supervised or not
+    :return: X_train, X_test, Y_train, Y_test according to the given split
+    """
     # keep only the first TRAIN_TEST_SPLIT * 100 rows of df
     n = int(TRAIN_TEST_SPLIT * 100 * len(df))
     df = df.head(n)
@@ -294,14 +326,21 @@ def get_train_test_split_search(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
 
 
 def apply_data_missingness(x_train, y_train, missingness_modulo: int):
-
+    """
+    A function that applies missingness to the data according to the given modulo. Data missingness is achieved by
+    removing every nth row from the data to arrive at an evenly spaced missingness pattern. This is done to reflect
+    the likely use case for our model (i.e. one CGM measurement every week instead of every 5 minutes).
+    :param x_train: The input data
+    :param y_train: The target data
+    :param missingness_modulo: How many rows to skip
+    :return: x_train, y_train with missingness applied
+    """
     assert x_train.shape[0] == y_train.shape[0]
-
     x_train = x_train[::missingness_modulo]
     y_train = y_train[::missingness_modulo]
-
     assert x_train.shape[0] == y_train.shape[0]
     return x_train, y_train
+
 
 def xi(x, a, epsilon):
     two = tf.constant(2, dtype=tf.float32)

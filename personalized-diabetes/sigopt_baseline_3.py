@@ -1,12 +1,12 @@
 # Python file for running baseline 3 (individualization, no self-supervised data) using sigopt
+import argparse
+import git
+import numpy as np
+import os
 import pandas as pd
 import sigopt_functions as sf
 import sigopt
-import git
-import os
 import tensorflow as tf
-import argparse
-import numpy as np
 
 
 os.environ["SIGOPT_API_TOKEN"] = "CDLCFJJUWDYYKMDCXOISTWNALSSWLQQGBJHEBNVKXFQMFWNE"
@@ -184,7 +184,7 @@ if __name__ == "__main__":
 
 
     else:
-        data = load_data(0.8, 0.0)
+        data = load_data(0.8, 1)
         experiment = sigopt.create_experiment(
             name=f"Baseline_3_{name}",
             type="offline",

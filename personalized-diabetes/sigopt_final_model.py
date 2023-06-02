@@ -1,20 +1,12 @@
 # Python file for running baseline 1 (individualization, self-supervised data, double pretraining) using sigopt
+import argparse
+import git
+import numpy as np
+import os
 import pandas as pd
 import sigopt_functions as sf
 import sigopt
-import git
-import os
 import tensorflow as tf
-import argparse
-import numpy as np
-
-
-
-
-# TODO: make GlucoseModel class inherit from Model class
-#TODO: set up new AWS instance with new limit
-#TODO: write experiment code for all models
-
 
 
 os.environ["SIGOPT_API_TOKEN"] = "CDLCFJJUWDYYKMDCXOISTWNALSSWLQQGBJHEBNVKXFQMFWNE"
@@ -22,21 +14,19 @@ os.environ["SIGOPT_PROJECT"] = "personalized-diabetes"
 DATASET = 'basic_0.csv'
 DATASET_SELF = 'self_0.csv'
 
+
 def load_data(split:float, missingness_modulo:int):
 
     df_basic = pd.read_csv(DATASET)
     print('Basic data read')
     df_self = pd.read_csv(DATASET_SELF)
     print('Self data read')
-    # delete a fraction of the df rows according to data_missingness
     X_train, X_test, Y_train, Y_test = \
         sf.get_train_test_split_search(df_basic, split, False)
     
     X_train, Y_train = sf.apply_data_missingness(x_train=X_train, y_train=Y_train, missingness_modulo=missingness_modulo)
-
     X_train_self, X_test_self, Y_train_self, Y_test_self = \
         sf.get_train_test_split_search(df_self, split, True)
-
     return X_train, X_test, Y_train, Y_test, X_train_self, X_test_self, Y_train_self, Y_test_self
 
 def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
@@ -230,10 +220,9 @@ if __name__ == '__main__':
                 run.log_metadata("GPUs available", tf.config.list_physical_devices("GPU"))
                 load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=True)
     else:
-
-        data = load_data(0.8, 0.0)
+        data = load_data(0.8, 1)
         experiment = sigopt.create_experiment(
-            name=f"Final_model_{name}",
+            name=f"Final_model_search_{name}",
             type="offline",
             parameters=[dict(name="dropout_rate", type="double", bounds=dict(min=0.0, max=0.2)),
                 dict(
