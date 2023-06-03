@@ -13,7 +13,6 @@ os.environ["SIGOPT_PROJECT"] = "personalized-diabetes"
 DATASET = "basic_0.csv"
 DATASET_SELF = "self_0.csv"
 
-
 def load_data(split: float, missingness_modulo: int):
     # read in df_self but only read in every 4th row
     df_self = pd.read_csv(DATASET_SELF)
@@ -33,16 +32,9 @@ def load_data(split: float, missingness_modulo: int):
         Y_train_self,
         Y_test_self,
     ) = sf.get_train_test_split_search(df_self, split, True)
-
-
-    X_train.drop(columns=["DeidentID"], inplace=True)
-    X_test.drop(columns=["DeidentID"], inplace=True)
     Y_train.drop(columns=["DeidentID"], inplace=True)
     Y_test.drop(columns=["DeidentID"], inplace=True)
-    X_train_self.drop(columns=["DeidentID"], inplace=True)
-    X_test_self.drop(columns=["DeidentID"], inplace=True)
-    Y_train_self.drop(columns=["DeidentID"], inplace=True)
-    Y_test_self.drop(columns=["DeidentID"], inplace=True)
+
     return (
         X_train,
         X_test,
@@ -67,6 +59,12 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
         Y_train_self,
         Y_test_self,
     ) = data
+
+    x_train_ids = X_train['DeidentID']
+    x_test_ids = X_test['DeidentID']
+    X_train.drop(columns=['DeidentID'], inplace=True)
+    X_test.drop(columns=['DeidentID'], inplace=True)
+
 
     # create the model
     with tf.device("/device:GPU:0"):
@@ -111,6 +109,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
     print('Y-HAT-TRAIN:')
     train_preds = pd.DataFrame(model.model.predict(X_train))
     train_preds['y'] = Y_train['CGM'].values
+    train_preds['DeidentID'] = x_train_ids.values
     print(train_preds.describe())
 
     train_preds['run'] = run.id
@@ -120,6 +119,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
     print('Y-HAT-TEST:')
     test_preds = pd.DataFrame(model.model.predict(X_test))
     test_preds['y'] = Y_test['CGM'].values
+    test_preds['DeidentID'] = x_test_ids.values
     test_preds['run'] = run.id
     test_preds['experiment'] = run.experiment
     print(test_preds.describe())
@@ -174,7 +174,7 @@ if __name__ == "__main__":
             name=f"Baseline_2_EXPERIMENT_{name}",
             type="grid",
             parameters=[
-                dict(name="missingness_modulo", type="int", grid=[1,2,4,10, 20, 50, 100, 200, 400])
+                dict(name="missingness_modulo", type="int", grid=[1,2,4,10, 20, 50, 100, 200, 400, 800, 1000])
             ],
             metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
             parallel_bandwidth=1,
