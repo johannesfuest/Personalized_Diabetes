@@ -87,7 +87,8 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
             int(run.params.batch_size), True
         )
         # supervised training
-        model.activate_finetune_mode()
+    model.activate_finetune_mode()
+    with tf.device("/device:GPU:0"):
         model.train_model(
             run.params.num_epochs_2,
             X_train,
