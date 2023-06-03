@@ -34,6 +34,10 @@ def load_data(split: float, missingness_modulo: int):
     ) = sf.get_train_test_split_search(df_self, split, True)
     Y_train.drop(columns=["DeidentID"], inplace=True)
     Y_test.drop(columns=["DeidentID"], inplace=True)
+    Y_train_self.drop(columns=["DeidentID"], inplace=True)
+    Y_test_self.drop(columns=["DeidentID"], inplace=True)
+    X_train_self.drop(columns=["DeidentID"], inplace=True)
+    X_test_self.drop(columns=["DeidentID"], inplace=True)
 
     return (
         X_train,
