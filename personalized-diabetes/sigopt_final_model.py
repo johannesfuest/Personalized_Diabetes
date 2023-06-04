@@ -40,41 +40,35 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
     test_gmses = []
     run.log_model("Final Model")
     run.log_metadata("sgd optimizer", "adam")
-    x_train_temp = X_train
-    x_test_temp = X_test
-    y_train_temp = Y_train
-    y_test_temp = Y_test
-    x_train_temp = x_train_temp.drop(columns = ['DeidentID'])
-    x_test_temp = x_test_temp.drop(columns = ['DeidentID'])
-    y_train_temp = y_train_temp.drop(columns = ['DeidentID'])
-    y_test_temp = y_test_temp.drop(columns = ['DeidentID'])
+
+    print("Starting general self-supervised training")
     with tf.device('/device:GPU:0'):
         base_model = \
                 sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
         # pretrain the model on all patient data
-        base_model.train_model(run.params.num_epochs_1,x_train_temp, x_test_temp, y_train_temp, y_test_temp,
-                          run.params.learning_rate_1, int(run.params.batch_size), True)
-    for i in range(1, 31):
+        base_model.train_model(run.params.num_epochs_1,X_train_self.drop(columns=['DeidentId']),
+                               X_test_self.drop(columns=['DeidentId']), Y_train_self.drop(columns=['DeidentId']),
+                                 Y_test_self.drop(columns=['DeidentId']), run.params.learning_rate_1,
+                                    int(run.params.batch_size), True)
+        print("Finished general self-supervised training")
+        base_model.activate_finetune_mode()
+        # General supervised training
+        print("Starting general supervised training")
+        base_model.train_model(run.params.num_epochs_2, X_train.drop(columns=['DeidentId']),
+                               X_test.drop(columns=['DeidentId']), Y_train.drop(columns=['DeidentId']),
+                               Y_test.drop(columns=['DeidentId']), run.params.learning_rate_2,
+                               int(run.params.batch_size), False)
+        print("Finished general supervised training")
+
+
+    patients_to_exclude = [1, 9, 10, 12, 16, 18, 19, 21, 22, 23, 24, 25, 26, 27, 29, 30]
+    patients_to_include = [i for i in range(1, 31) if i not in patients_to_exclude]
+    for i in patients_to_include:
         with tf.device('/device:GPU:0'):
             #clone the base model
             glucose_temp = sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
             glucose_temp.model.set_weights(base_model.model.get_weights())
 
-        # create the model
-        x_train = X_train_self[X_train_self['DeidentID'] == i]
-        x_test = X_test_self[X_test_self['DeidentID'] == i]
-        y_train = Y_train_self[Y_train_self['DeidentID'] == i]
-        y_test = Y_test_self[Y_test_self['DeidentID'] == i]
-        x_train = x_train.drop(columns=['DeidentID'])
-        x_test = x_test.drop(columns=['DeidentID'])
-        y_train = y_train.drop(columns=['DeidentID'])
-        y_test = y_test.drop(columns=['DeidentID'])
-        # self-supervised training
-        with tf.device('/device:GPU:0'):
-            glucose_temp.train_model(run.params.num_epochs_1, x_train, x_test, y_train, y_test,
-                              run.params.learning_rate_1, int(run.params.batch_size), True)
-            # individualization
-            glucose_temp.activate_finetune_mode()
         x_train = X_train[X_train['DeidentID'] == i]
         x_test = X_test[X_test['DeidentID'] == i]
         y_train = Y_train[Y_train['DeidentID'] == i]
@@ -83,10 +77,12 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
         x_test = x_test.drop(columns=['DeidentID'])
         y_train = y_train.drop(columns=['DeidentID'])
         y_test = y_test.drop(columns=['DeidentID'])
+        print("Starting individual supervised training for patient " + str(i))
         with tf.device('/device:GPU:0'):
             glucose_temp.train_model(run.params.num_epochs_2, x_train, x_test, y_train, y_test,
                                 run.params.learning_rate_2, int(run.params.batch_size), False)
             # evaluate the model
+        print("Finished individual supervised training for patient " + str(i))
          # evaluate the model
         train_gmse, train_mse = glucose_temp.evaluate_model(x_train, y_train)
         test_gmse, test_mse = glucose_temp.evaluate_model(x_test, y_test)
@@ -116,15 +112,11 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
         test_preds['experiment'] = run.experiment
         print(test_preds.describe())
 
-
         if write_preds:
             if not os.path.exists('preds'):
                 os.mkdir('preds')
-            train_preds.to_csv(os.path.join('preds', f'base_5_train_M{run.params.missingness_modulo}_D{i}.csv'))
-            test_preds.to_csv(os.path.join('preds', f'base_5_test_M{run.params.missingness_modulo}_D{i}.csv'))
-
-
-
+            train_preds.to_csv(os.path.join('preds', f'base_9_train_M{run.params.missingness_modulo}_D{i}.csv'))
+            test_preds.to_csv(os.path.join('preds', f'base_9_test_M{run.params.missingness_modulo}_D{i}.csv'))
 
         print('Y-TEST:')
         print(y_test.describe())
@@ -203,7 +195,7 @@ if __name__ == '__main__':
             name=f"FINAL_EXPERIMENT_{name}",
             type="grid",
             parameters=[
-                dict(name="missingness_modulo", type="int", grid=[1000, 2000])
+                dict(name="missingness_modulo", type="int", grid=[10, 20, 50, 100, 200, 400, 1000])
             ],
             metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
             parallel_bandwidth=1,
