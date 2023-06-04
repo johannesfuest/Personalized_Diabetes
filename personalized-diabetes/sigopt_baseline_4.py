@@ -177,7 +177,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
     train_gmse = 0
     test_mse = 0
     test_gmse = 0
-    for i in range(30):
+    for i in range(15):
         train_mse += weights_train[i] * train_mses[i]
         train_gmse += weights_train[i] * train_gmses[i]
         test_mse += weights_test[i] * test_mses[i]
