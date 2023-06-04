@@ -21,6 +21,9 @@ def load_data(split: float, missingness_modulo: int):
     df_basic = pd.read_csv(DATASET)
 
     print("Self data read")
+    patients_to_exclude = [1, 9, 10, 12, 16, 18, 19, 21, 22, 23, 24, 25, 26, 27, 29, 30]
+    df_basic = df_basic[~df_basic.DeidentID.isin(patients_to_exclude)]
+    df_self = df_self[~df_self.DeidentID.isin(patients_to_exclude)]
     # delete a fraction of the df rows according to data_missingness
     X_train, X_test, Y_train, Y_test = sf.get_train_test_split_search(
         df_basic, split, False
@@ -65,7 +68,9 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
     test_gmses = []
     run.log_model("Baseline 4")
     run.log_metadata("sgd optimizer", "adam")
-    for i in range(1, 31):
+    patients_to_exclude = [1, 9, 10, 12, 16, 18, 19, 21, 22, 23, 24, 25, 26, 27, 29, 30]
+    patients_to_include = [i for i in range(1, 31) if i not in patients_to_exclude]
+    for i in patients_to_include:
         # create the model
         with tf.device("/GPU:0"):
             model = sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
@@ -147,9 +152,6 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
             train_preds.to_csv(os.path.join('preds', f'base_8_train_M{run.params.missingness_modulo}_D{i}.csv'))
             test_preds.to_csv(os.path.join('preds', f'base_8_test_M{run.params.missingness_modulo}_D{i}.csv'))
 
-
-
-
         print('Y-TEST:')
         print(y_test.describe())
         print('Y-HAT-TEST:')
@@ -227,7 +229,7 @@ if __name__ == "__main__":
             name=f"Baseline_4_EXPERIMENT_{name}",
             type="grid",
             parameters=[
-                dict(name="missingness_modulo", type="int", grid=[1,2,4,10, 20, 50, 100, 200, 400, 800, 1000])
+                dict(name="missingness_modulo", type="int", grid=[10, 20, 50, 100, 200, 400, 800, 1000])
             ],
             metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
             parallel_bandwidth=1,
