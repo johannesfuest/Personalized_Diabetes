@@ -12,7 +12,7 @@ import tensorflow as tf
 os.environ["SIGOPT_API_TOKEN"] = "CDLCFJJUWDYYKMDCXOISTWNALSSWLQQGBJHEBNVKXFQMFWNE"
 os.environ["SIGOPT_PROJECT"] = "personalized-diabetes"
 DATASET = "basic_0.csv"
-DATASET_SELF = "self_0.csv"
+DATASET_SELF = "self_sup_alt.csv"
 
 
 def load_data(split: float, missingness_modulo: int):
@@ -144,8 +144,8 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
         if write_preds:
             if not os.path.exists('preds'):
                 os.mkdir('preds')
-            train_preds.to_csv(os.path.join('preds', f'base_4_train_M{run.params.missingness_modulo}_D{i}.csv'))
-            test_preds.to_csv(os.path.join('preds', f'base_4_test_M{run.params.missingness_modulo}_D{i}.csv'))
+            train_preds.to_csv(os.path.join('preds', f'base_8_train_M{run.params.missingness_modulo}_D{i}.csv'))
+            test_preds.to_csv(os.path.join('preds', f'base_8_test_M{run.params.missingness_modulo}_D{i}.csv'))
 
 
 
