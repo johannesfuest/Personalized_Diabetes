@@ -133,8 +133,8 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
     if write_preds:
         if not os.path.exists('preds'):
             os.mkdir('preds')
-        train_preds.to_csv(os.path.join('preds', f'base_2_train_M{run.params.missingness_modulo}.csv'))
-        test_preds.to_csv(os.path.join('preds', f'base_2_test_M{run.params.missingness_modulo}.csv'))
+        train_preds.to_csv(os.path.join('preds', f'base_7_train_M{run.params.missingness_modulo}.csv'))
+        test_preds.to_csv(os.path.join('preds', f'base_7_test_M{run.params.missingness_modulo}.csv'))
 
     # log performance metrics
     run.log_metric("train gMSE", train_gmse)
