@@ -12,7 +12,7 @@ warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
 class ConvLayer(tf.keras.layers.Layer):
     """
-    Custom subclass on tf.keras.layers.Layer to implement a convolutional layer layer specific to our problem. Each layer
+    Custom subclass on tf.keras.layers.Layer to implement a convolutional layer specific to our problem. Each layer
     contains two 1D Convolutions with max pooling, dropout and batchnorm between.
     Each layer is further defined by the following parameters:
     - CONV_INPUT_LENGTH: the length of the input to the convolutional layer (288 in our case due to 5 minute intervals)

@@ -242,7 +242,7 @@ if __name__ == "__main__":
                     run.log_metadata(parameter, value)
                 run.log_metadata("commit", sha)
                 run.log_metadata("GPUs available", tf.config.list_physical_devices("GPU"))
-                load_data_train_model(run, data, CONV_INPUT_LENGTH)
+                load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=True)
     else:
         
         data = load_data(0.8, 1)
