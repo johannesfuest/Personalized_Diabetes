@@ -249,9 +249,9 @@ def get_train_test_split(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
         test.shape[0] + train.shape[0] == df.shape[0]
     ), "Train-Test shapes don not add up."
     if self_sup:
-        X_train = train.drop(columns=["LocalDtTm", "CGM", "future insulin", "future mealsize", "future carbs", "future exercise"])
+        X_train = train.drop(columns=["LocalDtTm", "CGM", "future_insulin", "future_mealsize", "future_carbs", "future_exercise"])
         Y_train = train.drop(columns=["LocalDtTm", "CGM"])
-        X_test = test.drop(columns=["LocalDtTm", "CGM", "future insulin", "future mealsize", "future carbs", "future exercise"])
+        X_test = test.drop(columns=["LocalDtTm", "CGM", "future_insulin", "future_mealsize", "future_carbs", "future_exercise"])
         Y_test = test.drop(columns=["LocalDtTm", "CGM"])
         for i in range(1, 289):
             Y_train = Y_train.drop(
