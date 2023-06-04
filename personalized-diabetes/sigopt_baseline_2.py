@@ -179,7 +179,7 @@ if __name__ == "__main__":
             name=f"Baseline_2_EXPERIMENT_{name}",
             type="grid",
             parameters=[
-                dict(name="missingness_modulo", type="int", grid=[400, 800, 1000])
+                dict(name="missingness_modulo", type="int", grid=[800, 1000])
             ],
             metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
             parallel_bandwidth=1,
