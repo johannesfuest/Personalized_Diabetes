@@ -159,7 +159,7 @@ class GlucoseModel():
         # The output does NOT have an activation (regression task)
         # Last layer has 4*CONV_INPUT_LENGTH units if self-supervised, else 1 unit.
         if self_sup:
-            output = tfl.Dense(units=4 * CONV_INPUT_LENGTH, activation=None)(FC4)
+            output = tfl.Dense(units=4, activation=None)(FC4)
         else:
             FC5 = tfl.Dense(units=1, activation='relu')(FC4)
             output = tfl.ReLU(max_value=401)(FC5)
@@ -249,29 +249,13 @@ def get_train_test_split(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
         test.shape[0] + train.shape[0] == df.shape[0]
     ), "Train-Test shapes don not add up."
     if self_sup:
-        X_train = train.drop(columns=["LocalDtTm", "CGM"])
+        X_train = train.drop(columns=["LocalDtTm", "CGM", "future insulin", "future mealsize", "future carbs", "future exercise"])
         Y_train = train.drop(columns=["LocalDtTm", "CGM"])
-        X_test = test.drop(columns=["LocalDtTm", "CGM"])
+        X_test = test.drop(columns=["LocalDtTm", "CGM", "future insulin", "future mealsize", "future carbs", "future exercise"])
         Y_test = test.drop(columns=["LocalDtTm", "CGM"])
         for i in range(1, 289):
-            X_train = X_train.drop(
-                columns=[
-                    f"insulin {i} target",
-                    f"mealsize {i} target",
-                    f"carbs {i} target",
-                    f"exercise {i} target",
-                ]
-            )
             Y_train = Y_train.drop(
                 columns=[f"insulin {i}", f"mealsize {i}", f"carbs {i}", f"exercise {i}"]
-            )
-            X_test = X_test.drop(
-                columns=[
-                    f"insulin {i} target",
-                    f"mealsize {i} target",
-                    f"carbs {i} target",
-                    f"exercise {i} target",
-                ]
             )
             Y_test = Y_test.drop(
                 columns=[f"insulin {i}", f"mealsize {i}", f"carbs {i}", f"exercise {i}"]
@@ -506,10 +490,7 @@ def gMSE(
 
 if __name__ == "__main__":
     print("stop being red")
-    # TODO: ensure dfs are sorted properly
-    # TODO: discuss batch norm in FC layers -> ask Peter
     # TODO: Go over data visualization Functions (check naming convention and titles, etc.)
-    # TODO: Think about modelling justification
     # TODO: Merge all to main
     # TODO: Run Grid Search for each Model
     # TODO: Run Experiments for each Model

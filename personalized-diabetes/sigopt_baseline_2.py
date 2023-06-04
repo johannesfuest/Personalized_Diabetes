@@ -11,7 +11,7 @@ import tensorflow as tf
 os.environ["SIGOPT_API_TOKEN"] = "CDLCFJJUWDYYKMDCXOISTWNALSSWLQQGBJHEBNVKXFQMFWNE"
 os.environ["SIGOPT_PROJECT"] = "personalized-diabetes"
 DATASET = "basic_0.csv"
-DATASET_SELF = "self_0.csv"
+DATASET_SELF = "self_sup_alt.csv"
 
 def load_data(split: float, missingness_modulo: int):
     # read in df_self but only read in every 4th row
