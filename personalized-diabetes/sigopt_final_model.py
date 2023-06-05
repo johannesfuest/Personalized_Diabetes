@@ -46,17 +46,17 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
         base_model = \
                 sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
         # pretrain the model on all patient data
-        base_model.train_model(run.params.num_epochs_1,X_train_self.drop(columns=['DeidentId']),
-                               X_test_self.drop(columns=['DeidentId']), Y_train_self.drop(columns=['DeidentId']),
-                                 Y_test_self.drop(columns=['DeidentId']), run.params.learning_rate_1,
+        base_model.train_model(run.params.num_epochs_1,X_train_self.drop(columns=['DeidentID']),
+                               X_test_self.drop(columns=['DeidentID']), Y_train_self.drop(columns=['DeidentID']),
+                                 Y_test_self.drop(columns=['DeidentID']), run.params.learning_rate_1,
                                     int(run.params.batch_size), True)
         print("Finished general self-supervised training")
         base_model.activate_finetune_mode()
         # General supervised training
         print("Starting general supervised training")
-        base_model.train_model(run.params.num_epochs_2, X_train.drop(columns=['DeidentId']),
-                               X_test.drop(columns=['DeidentId']), Y_train.drop(columns=['DeidentId']),
-                               Y_test.drop(columns=['DeidentId']), run.params.learning_rate_2,
+        base_model.train_model(run.params.num_epochs_2, X_train.drop(columns=['DeidentID']),
+                               X_test.drop(columns=['DeidentID']), Y_train.drop(columns=['DeidentID']),
+                               Y_test.drop(columns=['DeidentID']), run.params.learning_rate_2,
                                int(run.params.batch_size), False)
         print("Finished general supervised training")
 
