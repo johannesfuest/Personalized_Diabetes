@@ -67,7 +67,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
     for i in patients_to_include:
         with tf.device('/device:GPU:0'):
             #clone the base model
-            glucose_temp = sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
+            glucose_temp = sf.GlucoseModel(CONV_INPUT_LENGTH, False, run)
             glucose_temp.model.set_weights(base_model.model.get_weights())
 
         x_train = X_train[X_train['DeidentID'] == i]
