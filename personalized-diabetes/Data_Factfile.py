@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 #  Quick script to establish some baseline properties of the data
 if __name__== '__main__':
@@ -62,7 +63,7 @@ if __name__== '__main__':
         rowlist.append(carbs_test)
         if i == 1:
             df_results = pd.DataFrame([rowlist],
-                                      columns=["patient", "nrwos", "avg_cgm", "avg_insulin", "avg_exercise",
+                                      columns=["patient", "nrows", "avg_cgm", "avg_insulin", "avg_exercise",
                                                "avg_mealsize", "avg_glucose", "avg_glucose_train", "avg_glucose_test",
                                                   "avg_insulin_train", "avg_insulin_test", "avg_exercise_train",
                                                     "avg_exercise_test", "avg_mealsize_train", "avg_mealsize_test",
@@ -70,3 +71,4 @@ if __name__== '__main__':
         else:
             df_results.loc[len(df_results)] = rowlist
     df_results.to_csv('data_summary.csv')
+
