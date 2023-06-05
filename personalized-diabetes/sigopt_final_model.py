@@ -40,25 +40,26 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
     test_gmses = []
     run.log_model("Final Model")
     run.log_metadata("sgd optimizer", "adam")
-
+    base_model = \
+        sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
     print("Starting general self-supervised training")
     with tf.device('/device:GPU:0'):
-        base_model = \
-                sf.GlucoseModel(CONV_INPUT_LENGTH, True, run)
         # pretrain the model on all patient data
         base_model.train_model(run.params.num_epochs_1,X_train_self.drop(columns=['DeidentID']),
                                X_test_self.drop(columns=['DeidentID']), Y_train_self.drop(columns=['DeidentID']),
                                  Y_test_self.drop(columns=['DeidentID']), run.params.learning_rate_1,
                                     int(run.params.batch_size), True)
-        print("Finished general self-supervised training")
+    print("Finished general self-supervised training")
+    with tf.device('/device:GPU:0'):
         base_model.activate_finetune_mode()
         # General supervised training
-        print("Starting general supervised training")
+    print("Starting general supervised training")
+    with tf.device('/device:GPU:0'):
         base_model.train_model(run.params.num_epochs_2, X_train.drop(columns=['DeidentID']),
                                X_test.drop(columns=['DeidentID']), Y_train.drop(columns=['DeidentID']),
                                Y_test.drop(columns=['DeidentID']), run.params.learning_rate_2,
                                int(run.params.batch_size), False)
-        print("Finished general supervised training")
+    print("Finished general supervised training")
 
 
     patients_to_exclude = [1, 9, 10, 12, 16, 18, 19, 21, 22, 23, 24, 25, 26, 27, 29, 30]

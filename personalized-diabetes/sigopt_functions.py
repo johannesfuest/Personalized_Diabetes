@@ -203,7 +203,7 @@ class GlucoseModel():
         # Let's run this!
         print("Training model...")
         self.model.fit(
-            train_dataset, epochs=epochs, validation_data=test_dataset, verbose=0
+            train_dataset, epochs=epochs, validation_data=test_dataset
         )
         print("Done training model.")
 
