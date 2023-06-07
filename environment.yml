@@ -2,10 +2,10 @@ name: cs230
 channels:
   - conda-forge
 dependencies:
+  - python=3.10.11
   - pandas
   - numpy
   - plotly
-  - python
   - scikit-learn
   - scipy=1.10.0
   - statsmodels
@@ -13,3 +13,5 @@ dependencies:
   - notebook
   - black
   - matplotlib
+  - python-kaleido
+  - gitpython
