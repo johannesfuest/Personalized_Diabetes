@@ -489,8 +489,4 @@ def gMSE(
 
 
 if __name__ == "__main__":
-    print("stop being red")
-    # TODO: Go over data visualization Functions (check naming convention and titles, etc.)
-    # TODO: Merge all to main
-    # TODO: Run Grid Search for each Model
-    # TODO: Run Experiments for each Model
+    sys.exit(0)

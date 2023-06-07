@@ -16,6 +16,12 @@ DATASET_SELF = "self_sup_alt.csv"
 
 
 def load_data(split: float, missingness_modulo: int):
+    """
+    Load data for baseline 4
+    :param split: Float describing how much of the data to use for training
+    :param missingness_modulo: Int n describing how much of the data to delete (keep only every nth row)
+    :return: X_train, X_test, Y_train, Y_test, X_train_self, X_test_self, Y_train_self, Y_test_self as pandas dataframes
+    """
     df_self = pd.read_csv(DATASET_SELF)
     print("Basic data read")
     df_basic = pd.read_csv(DATASET)
@@ -49,6 +55,14 @@ def load_data(split: float, missingness_modulo: int):
 
 
 def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
+    """
+    Loads the data and trains the baseline 4, logging the results to sigopt and writing predictions to files
+    :param run: sigopt run objects with run-specific parameters
+    :param data: X_train, X_test, Y_train, Y_test, X_train_self, X_test_self, Y_train_self, Y_test_self as pandas dataframes
+    :param CONV_INPUT_LENGTH: int describing the length of the input to the convolutional layer
+    :param write_preds: Bool describing whether to write predictions to files
+    :return: void, but writes predictions to files if write_preds is True
+    """
     run.log_dataset(name=DATASET)
     (
         X_train,
@@ -194,6 +208,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
 
 
 if __name__ == "__main__":
+    # Either runs experiment or grid search for final model (for experiment use --experiment)
     CONV_INPUT_LENGTH = 288
     parser = argparse.ArgumentParser()
     parser.add_argument('--name', type=str, help='Specify an experiment name')

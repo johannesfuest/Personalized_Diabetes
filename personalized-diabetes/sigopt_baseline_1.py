@@ -14,10 +14,14 @@ DATASET = "basic_0.csv"
 
 
 def load_data(split: float, missingness_modulo: int):
+    """
+    Loads the data for baseline 1.
+    :param split: Float describing how much of the data to use for training
+    :param missingness_modulo: Int n describing how much of the data to delete (keep only every nth row)
+    :return: X_train, X_test, Y_train, Y_test as pandas dataframes
+    """
     df_basic = pd.read_csv(DATASET)
     print("data read")
-
-
     X_train, X_test, Y_train, Y_test = sf.get_train_test_split_search(
         df_basic, split, False
     )
@@ -30,6 +34,14 @@ def load_data(split: float, missingness_modulo: int):
 
 
 def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
+    """
+    Loads the data and trains baseline 1, logging the results to sigopt and writing predictions to files
+    :param run: sigopt run objects with run-specific parameters
+    :param data: X_train, X_test, Y_train, Y_test as pandas dataframes
+    :param CONV_INPUT_LENGTH: int describing the length of the input to the convolutional layer
+    :param write_preds: Bool describing whether to write predictions to files
+    :return: void, but writes predictions to files if write_preds is True
+    """
     run.log_dataset(name=DATASET)
     X_train, X_test, Y_train, Y_test = data
     # create the model
@@ -90,6 +102,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
 
 
 if __name__ == "__main__":
+    # Either runs experiment or grid search for final model (for experiment use --experiment)
     CONV_INPUT_LENGTH = 288
     parser = argparse.ArgumentParser()
     parser.add_argument('--name', type=str, help='Specify an experiment name')
