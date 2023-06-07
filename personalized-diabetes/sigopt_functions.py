@@ -18,8 +18,9 @@ class ConvLayer(tf.keras.layers.Layer):
     - CONV_INPUT_LENGTH: the length of the input to the convolutional layer (288 in our case due to 5 minute intervals)
     - run: the SigOpt run object containing the parameters for the layer
     """
+
     def __init__(self, CONV_INPUT_LENGTH: int, run, **kwargs):
-        """ Constructor for the ConvLayer class."""
+        """Constructor for the ConvLayer class."""
         super(ConvLayer, self).__init__(**kwargs)
         self.CONV_INPUT_LENGTH = CONV_INPUT_LENGTH
         # 1st CONV
@@ -67,18 +68,20 @@ class ConvLayer(tf.keras.layers.Layer):
 
     def get_config(self):
         config = super().get_config().copy()
-        config.update({
-            'CONV_INPUT_LENGTH': self.CONV_INPUT_LENGTH,
-            'conv1': self.conv1,
-            'norm1': self.norm1,
-            'pool1': self.pool1,
-            'drop1': self.drop1,
-            'conv2': self.conv2,
-            'norm2': self.norm2,
-            'pool2': self.pool2,
-            'drop2': self.drop2,
-            'flatten': self.flatten,
-        })
+        config.update(
+            {
+                "CONV_INPUT_LENGTH": self.CONV_INPUT_LENGTH,
+                "conv1": self.conv1,
+                "norm1": self.norm1,
+                "pool1": self.pool1,
+                "drop1": self.drop1,
+                "conv2": self.conv2,
+                "norm2": self.norm2,
+                "pool2": self.pool2,
+                "drop2": self.drop2,
+                "flatten": self.flatten,
+            }
+        )
         return config
 
     def call(self, input):
@@ -104,10 +107,11 @@ class ConvLayer(tf.keras.layers.Layer):
         return flatten_out
 
 
-class GlucoseModel():
+class GlucoseModel:
     """
     Class to define the model architecture for the glucose prediction model.
     """
+
     def get_model(self, CONV_INPUT_LENGTH: int, self_sup: bool):
         """
         Function to define the model architecture for the glucose prediction model.
@@ -157,20 +161,20 @@ class GlucoseModel():
 
         # Now fully connect layers
         # Use multiples of two as recommended in class.
-        FC1 = tfl.Dense(units=512, activation='relu')(post_conv)
+        FC1 = tfl.Dense(units=512, activation="relu")(post_conv)
         DR1 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC1)
-        FC2 = tfl.Dense(units=256, activation='relu')(DR1)
+        FC2 = tfl.Dense(units=256, activation="relu")(DR1)
         DR2 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC2)
-        FC3 = tfl.Dense(units=128, activation='relu')(DR2)
+        FC3 = tfl.Dense(units=128, activation="relu")(DR2)
         DR3 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC3)
-        FC4 = tfl.Dense(units=64, activation='relu')(DR3)
+        FC4 = tfl.Dense(units=64, activation="relu")(DR3)
 
         # The output does NOT have an activation (regression task)
         # Last layer has 4*CONV_INPUT_LENGTH units if self-supervised, else 1 unit.
         if self_sup:
             output = tfl.Dense(units=4, activation=None)(FC4)
         else:
-            FC5 = tfl.Dense(units=1, activation='relu')(FC4)
+            FC5 = tfl.Dense(units=1, activation="relu")(FC4)
             output = tfl.ReLU(max_value=401)(FC5)
         model = tf.keras.Model(inputs=input, outputs=output)
         return model
@@ -182,8 +186,9 @@ class GlucoseModel():
     def set_model(self, model):
         self.model = model
 
-
-    def train_model(self, epochs, X_train, X_test, Y_train, Y_test, lr, batch_size, self_sup: bool):
+    def train_model(
+        self, epochs, X_train, X_test, Y_train, Y_test, lr, batch_size, self_sup: bool
+    ):
         """
         A function that trains the given model on the given data.
         :param epochs: The number of epochs we want to train for
@@ -210,9 +215,7 @@ class GlucoseModel():
         )
         # Let's run this!
         print("Training model...")
-        self.model.fit(
-            train_dataset, epochs=epochs, validation_data=test_dataset
-        )
+        self.model.fit(train_dataset, epochs=epochs, validation_data=test_dataset)
         print("Done training model.")
 
     def evaluate_model(self, X_test, Y_test):
@@ -260,9 +263,27 @@ def get_train_test_split(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
     ), "Train-Test shapes don not add up."
     if self_sup:
         # Drop the columns that are not needed for self-supervised learning
-        X_train = train.drop(columns=["LocalDtTm", "CGM", "future_insulin", "future_meal", "future_carbs", "future_exercise"])
+        X_train = train.drop(
+            columns=[
+                "LocalDtTm",
+                "CGM",
+                "future_insulin",
+                "future_meal",
+                "future_carbs",
+                "future_exercise",
+            ]
+        )
         Y_train = train.drop(columns=["LocalDtTm", "CGM"])
-        X_test = test.drop(columns=["LocalDtTm", "CGM", "future_insulin", "future_meal", "future_carbs", "future_exercise"])
+        X_test = test.drop(
+            columns=[
+                "LocalDtTm",
+                "CGM",
+                "future_insulin",
+                "future_meal",
+                "future_carbs",
+                "future_exercise",
+            ]
+        )
         Y_test = test.drop(columns=["LocalDtTm", "CGM"])
         for i in range(1, 289):
             Y_train = Y_train.drop(
@@ -333,15 +354,19 @@ def apply_data_missingness(x_train, y_train, missingness_modulo: int):
     :return: x_train, y_train with missingness applied
     """
     # Sanity check: x_train and y_train should have the same number of rows
-    assert x_train.shape[0] == y_train.shape[0], "x_train and y_train should have the same number of rows before missingness is applied."
+    assert (
+        x_train.shape[0] == y_train.shape[0]
+    ), "x_train and y_train should have the same number of rows before missingness is applied."
     x_train = x_train[::missingness_modulo]
     y_train = y_train[::missingness_modulo]
-    assert x_train.shape[0] == y_train.shape[0], "x_train and y_train should have the same number of rows after missingness is applied."
+    assert (
+        x_train.shape[0] == y_train.shape[0]
+    ), "x_train and y_train should have the same number of rows after missingness is applied."
     return x_train, y_train
 
 
 def xi(x, a, epsilon):
-    """ 
+    """
     xi function from gMSE paper: 2/epsilon * (x-a-epsilon/2)
     Only use TensorFlow operations to ensure that the gradient is computed correctly and efficiently
     """
@@ -353,7 +378,7 @@ def xi(x, a, epsilon):
 
 
 def sigmoid(x, a, epsilon):
-    """ 
+    """
     sigmoid function from gMSE paper:
     """
     XI = xi(x, a, epsilon)
@@ -384,7 +409,7 @@ def sigmoid(x, a, epsilon):
 
 
 def xi_bar(x, a, epsilon):
-    """ 
+    """
     xi_bar function from gMSE paper: -2/epsilon * (x-a+epsilon/2)"""
     minus_two = tf.constant(-2.0, dtype=tf.float32)
     m_two_over_epsilon = tf.math.divide(minus_two, epsilon)
@@ -396,7 +421,7 @@ def xi_bar(x, a, epsilon):
 
 
 def sigmoid_bar(x, a, epsilon):
-    """ 
+    """
     sigmoid_bar function from gMSE paper"""
     XI_BAR = xi_bar(x, a, epsilon)
     zero = tf.constant(0.0, dtype=tf.float32)
@@ -425,6 +450,7 @@ def sigmoid_bar(x, a, epsilon):
         ),
     )
 
+
 # Define constants from original gMSE paper
 alpha_L = tf.constant(1.5, dtype=tf.float32)
 alpha_H = tf.constant(1.0, dtype=tf.float32)
@@ -448,7 +474,7 @@ def Pen(
     t_L=t_L,
     t_H=t_H,
 ):
-    """ Penalty function from gMSE paper"""
+    """Penalty function from gMSE paper"""
     one = tf.constant(1.0, dtype=tf.float32)
     return tf.math.add(
         one,
@@ -481,7 +507,7 @@ def gSE(
     t_L=t_L,
     t_H=t_H,
 ):
-    """ gMSE function from gMSE paper: (g-g_hat)^2 * Pen(g, g_hat) = MSE * Pen(g, g_hat)"""
+    """gMSE function from gMSE paper: (g-g_hat)^2 * Pen(g, g_hat) = MSE * Pen(g, g_hat)"""
     return tf.math.multiply(
         tf.math.square(tf.subtract(tf.cast(g, tf.float32), g_hat)),
         Pen(
@@ -511,7 +537,7 @@ def gMSE(
     t_L=t_L,
     t_H=t_H,
 ):
-    """ Mean aggregated gMSE function from gMSE paper: mean(gMSE) = mean(MSE * Pen(g, g_hat))"""
+    """Mean aggregated gMSE function from gMSE paper: mean(gMSE) = mean(MSE * Pen(g, g_hat))"""
     return tf.math.reduce_mean(
         gSE(g, g_hat, alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H)
     )

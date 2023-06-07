@@ -26,11 +26,13 @@ def load_data(split: float, missingness_modulo: int):
     X_train, X_test, Y_train, Y_test = sf.get_train_test_split_search(
         df_basic, split, False
     )
-    X_train, Y_train = sf.apply_data_missingness(x_train=X_train, y_train=Y_train, missingness_modulo=missingness_modulo)
+    X_train, Y_train = sf.apply_data_missingness(
+        x_train=X_train, y_train=Y_train, missingness_modulo=missingness_modulo
+    )
     return X_train, X_test, Y_train, Y_test
 
 
-def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds = False):
+def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
     """
     Loads the data and trains baseline 3, logging the results to sigopt and writing predictions to files
     :param run: sigopt run objects with run-specific parameters
@@ -72,39 +74,47 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds = False):
                 y_test,
                 run.params.learning_rate,
                 int(run.params.batch_size),
-                False
+                False,
             )
         # evaluate the model
         train_gmse, train_mse = model.evaluate_model(x_train, y_train)
         test_gmse, test_mse = model.evaluate_model(x_test, y_test)
 
-        print(f'train_mse{train_mse})')
-        print(f'train_gme{train_gmse})')
-        print(f'test_mse{test_mse})')
-        print(f'test_gme{test_gmse})')
+        print(f"train_mse{train_mse})")
+        print(f"train_gme{train_gmse})")
+        print(f"test_mse{test_mse})")
+        print(f"test_gme{test_gmse})")
 
-        print('Y-TRAIN:')
+        print("Y-TRAIN:")
         print(y_train.describe())
-        print('Y-HAT-TRAIN:')
+        print("Y-HAT-TRAIN:")
         train_preds = pd.DataFrame(model.model.predict(x_train))
-        train_preds['y'] = y_train['CGM'].values
-        train_preds['run'] = run.id
-        train_preds['experiment'] = run.experiment
+        train_preds["y"] = y_train["CGM"].values
+        train_preds["run"] = run.id
+        train_preds["experiment"] = run.experiment
         print(train_preds.describe())
-        print('Y-TEST:')
+        print("Y-TEST:")
         print(y_test.describe())
-        print('Y-HAT-TEST:')
+        print("Y-HAT-TEST:")
         test_preds = pd.DataFrame(model.model.predict(x_test))
-        test_preds['y'] = y_test['CGM'].values
-        test_preds['run'] = run.id
-        test_preds['experiment'] = run.experiment
+        test_preds["y"] = y_test["CGM"].values
+        test_preds["run"] = run.id
+        test_preds["experiment"] = run.experiment
         print(test_preds.describe())
 
         if write_preds:
-            if not os.path.exists('preds'):
-                os.mkdir('preds')
-            train_preds.to_csv(os.path.join('preds', f'base_3_train_M{run.params.missingness_modulo}_D{i}.csv'))
-            test_preds.to_csv(os.path.join('preds', f'base_3_test_M{run.params.missingness_modulo}_D{i}.csv'))
+            if not os.path.exists("preds"):
+                os.mkdir("preds")
+            train_preds.to_csv(
+                os.path.join(
+                    "preds", f"base_3_train_M{run.params.missingness_modulo}_D{i}.csv"
+                )
+            )
+            test_preds.to_csv(
+                os.path.join(
+                    "preds", f"base_3_test_M{run.params.missingness_modulo}_D{i}.csv"
+                )
+            )
 
         # log the model weights
         weights_train.append(len(x_train))
@@ -118,11 +128,11 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds = False):
     train_mses = np.clip(train_mses, a_max=10000000, a_min=0)
     test_gmses = np.clip(test_gmses, a_max=10000000, a_min=0)
     test_mses = np.clip(test_mses, a_max=10000000, a_min=0)
-    run.log_metric('u train gMSE', np.mean(train_gmses))
-    run.log_metric('u train MSE', np.mean(train_mses))
-    run.log_metric('u test gMSE', np.mean(test_gmses))
-    run.log_metric('u test gMSE', np.mean(test_mses))
-    
+    run.log_metric("u train gMSE", np.mean(train_gmses))
+    run.log_metric("u train MSE", np.mean(train_mses))
+    run.log_metric("u test gMSE", np.mean(test_gmses))
+    run.log_metric("u test gMSE", np.mean(test_mses))
+
     train_mse = 0
     train_gmse = 0
     test_mse = 0
@@ -147,42 +157,48 @@ if __name__ == "__main__":
     # Either runs experiment or grid search for final model (for experiment use --experiment)
     CONV_INPUT_LENGTH = 288
     parser = argparse.ArgumentParser()
-    parser.add_argument('--name', type=str, help='Specify an experiment name')
-    parser.add_argument('--experiment', action='store_true', help='Enable experiment mode')
+    parser.add_argument("--name", type=str, help="Specify an experiment name")
+    parser.add_argument(
+        "--experiment", action="store_true", help="Enable experiment mode"
+    )
 
     args = parser.parse_args()
     name = args.name
     if not name:
-        name=''
+        name = ""
 
     repo = git.Repo(search_parent_directories=True)
     sha = repo.head.object.hexsha
-    if args.experiment: 
+    if args.experiment:
         fixed_hyperparameters = {
-        'dropout_rate':  0.0579,
-        'learning_rate': 0.001362939,
-        'num_epochs':    10,
-        'batch_size':    64,
-        'filter_1':      4,
-        'kernel_1':      6,
-        'stride_1':      2,
-        'pool_size_1':   2,
-        'pool_stride_1': 2,
-        'filter_2':      7,
-        'kernel_2':      5,
-        'stride_2':      2,
-        'pool_size_2':   6,
-        'pool_stride_2': 5,
+            "dropout_rate": 0.0579,
+            "learning_rate": 0.001362939,
+            "num_epochs": 10,
+            "batch_size": 64,
+            "filter_1": 4,
+            "kernel_1": 6,
+            "stride_1": 2,
+            "pool_size_1": 2,
+            "pool_stride_1": 2,
+            "filter_2": 7,
+            "kernel_2": 5,
+            "stride_2": 2,
+            "pool_size_2": 6,
+            "pool_stride_2": 5,
         }
         experiment = sigopt.create_experiment(
             name=f"Baseline_3_EXPERIMENT_{name}",
             type="grid",
             parameters=[
-                dict(name="missingness_modulo", type="int", grid=[1,2,4,10, 20, 50, 100, 200, 400])
+                dict(
+                    name="missingness_modulo",
+                    type="int",
+                    grid=[1, 2, 4, 10, 20, 50, 100, 200, 400],
+                )
             ],
             metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
             parallel_bandwidth=1,
-            #budget=11,
+            # budget=11,
         )
 
         for run in experiment.loop():
@@ -192,9 +208,10 @@ if __name__ == "__main__":
                     run.params[parameter] = value
                     run.log_metadata(parameter, value)
                 run.log_metadata("commit", sha)
-                run.log_metadata("GPUs available", tf.config.list_physical_devices("GPU"))
+                run.log_metadata(
+                    "GPUs available", tf.config.list_physical_devices("GPU")
+                )
                 load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=True)
-
 
     else:
         data = load_data(0.8, 1)
@@ -204,10 +221,16 @@ if __name__ == "__main__":
             parameters=[
                 dict(name="dropout_rate", type="double", bounds=dict(min=0.0, max=0.2)),
                 dict(
-                    name="learning_rate", type="double", bounds=dict(min=0.0008, max=0.0015)
+                    name="learning_rate",
+                    type="double",
+                    bounds=dict(min=0.0008, max=0.0015),
                 ),
                 dict(name="num_epochs", type="int", bounds=dict(min=8, max=12)),
-                dict(name="batch_size", type="categorical", categorical_values=['32', '64']),
+                dict(
+                    name="batch_size",
+                    type="categorical",
+                    categorical_values=["32", "64"],
+                ),
                 dict(name="filter_1", type="int", bounds=dict(min=2, max=4)),
                 dict(name="kernel_1", type="int", bounds=dict(min=5, max=7)),
                 dict(name="stride_1", type="int", bounds=dict(min=1, max=2)),
@@ -260,5 +283,7 @@ if __name__ == "__main__":
         for run in experiment.loop():
             with run:
                 run.log_metadata("commit", sha)
-                run.log_metadata("GPUs available", tf.config.list_physical_devices("GPU"))
+                run.log_metadata(
+                    "GPUs available", tf.config.list_physical_devices("GPU")
+                )
                 load_data_train_model(run, data, CONV_INPUT_LENGTH)
