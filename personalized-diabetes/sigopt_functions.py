@@ -19,8 +19,10 @@ class ConvLayer(tf.keras.layers.Layer):
     - run: the SigOpt run object containing the parameters for the layer
     """
     def __init__(self, CONV_INPUT_LENGTH: int, run, **kwargs):
+        """ Constructor for the ConvLayer class."""
         super(ConvLayer, self).__init__(**kwargs)
         self.CONV_INPUT_LENGTH = CONV_INPUT_LENGTH
+        # 1st CONV
         self.conv1 = tfl.Conv1D(
             filters=run.params.filter_1,
             kernel_size=run.params.kernel_1,
@@ -29,13 +31,16 @@ class ConvLayer(tf.keras.layers.Layer):
             use_bias=False,
             activation="relu",
         )
+        # Batch Norm
         self.norm1 = tfl.BatchNormalization(axis=2)
+        # Max Pool
         self.pool1 = tfl.MaxPool1D(
             pool_size=run.params.pool_size_1,
             strides=run.params.pool_stride_1,
             padding="valid",
         )
         self.drop1 = tfl.Dropout(rate=run.params.dropout_rate)
+        # 2nd CONV
         self.conv2 = tfl.Conv1D(
             filters=run.params.filter_2,
             kernel_size=run.params.kernel_2,
@@ -44,13 +49,17 @@ class ConvLayer(tf.keras.layers.Layer):
             use_bias=False,
             activation="relu",
         )
+        # Batch Norm
         self.norm2 = tfl.BatchNormalization(axis=2)
+        # Max Pool
         self.pool2 = tfl.MaxPool1D(
             pool_size=run.params.pool_size_2,
             strides=run.params.pool_stride_2,
             padding="valid",
         )
+        # Dropout
         self.drop2 = tfl.Dropout(rate=run.params.dropout_rate)
+        # Now flatten the Matrix into a 1D vector (shape 1x204)
         self.flatten = tfl.Flatten()
 
     def build(self, input_shape):
@@ -184,7 +193,6 @@ class GlucoseModel():
         :param Y_test: The testing data labels
         :param lr: The learning rate
         :param batch_size: The batch size
-        :return:
         """
         # Create optimizer (Adam with specified learning rate - use default parameters otherwise. )
         adam_optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
@@ -225,6 +233,7 @@ class GlucoseModel():
         that predicts a single value instead of a whole row of predictors is added.
         :return: None, only changes the model
         """
+        # Remove last layer and add new one
         tflast = tfl.Dense(units=1, activation=None)(self.model.layers[-2].output)
         output = tfl.ReLU(max_value=401)(tflast)
         finetune_model = tf.keras.Model(inputs=self.model.input, outputs=output)
@@ -245,10 +254,12 @@ def get_train_test_split(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
     train_length = int(TRAIN_TEST_SPLIT * df.shape[0])
     train = df.iloc[:train_length, :]
     test = df.iloc[train_length:, :]
+    # Sanity check: train and test should add up to the original dataframe
     assert (
         test.shape[0] + train.shape[0] == df.shape[0]
     ), "Train-Test shapes don not add up."
     if self_sup:
+        # Drop the columns that are not needed for self-supervised learning
         X_train = train.drop(columns=["LocalDtTm", "CGM", "future_insulin", "future_meal", "future_carbs", "future_exercise"])
         Y_train = train.drop(columns=["LocalDtTm", "CGM"])
         X_test = test.drop(columns=["LocalDtTm", "CGM", "future_insulin", "future_meal", "future_carbs", "future_exercise"])
@@ -261,9 +272,11 @@ def get_train_test_split(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
                 columns=[f"insulin {i}", f"mealsize {i}", f"carbs {i}", f"exercise {i}"]
             )
     else:
+        # Drop the columns that are not needed for supervised learning in train set
         X_train = train.drop(columns=["LocalDtTm", "CGM"])
-        Y_train = train[["CGM", "DeidentID"]]
         X_test = test.drop(columns=["LocalDtTm", "CGM"])
+        # Drop the columns that are not needed for supervised learning in test set
+        Y_train = train[["CGM", "DeidentID"]]
         Y_test = test[["CGM", "DeidentID"]]
     return X_train, X_test, Y_train, Y_test
 
@@ -319,14 +332,19 @@ def apply_data_missingness(x_train, y_train, missingness_modulo: int):
     :param missingness_modulo: How many rows to skip
     :return: x_train, y_train with missingness applied
     """
-    assert x_train.shape[0] == y_train.shape[0]
+    # Sanity check: x_train and y_train should have the same number of rows
+    assert x_train.shape[0] == y_train.shape[0], "x_train and y_train should have the same number of rows before missingness is applied."
     x_train = x_train[::missingness_modulo]
     y_train = y_train[::missingness_modulo]
-    assert x_train.shape[0] == y_train.shape[0]
+    assert x_train.shape[0] == y_train.shape[0], "x_train and y_train should have the same number of rows after missingness is applied."
     return x_train, y_train
 
 
 def xi(x, a, epsilon):
+    """ 
+    xi function from gMSE paper: 2/epsilon * (x-a-epsilon/2)
+    Only use TensorFlow operations to ensure that the gradient is computed correctly and efficiently
+    """
     two = tf.constant(2, dtype=tf.float32)
     two_over_epsilon = tf.math.divide(two, epsilon)
     a_plus_epsilon_over_two = tf.math.add(a, tf.math.divide(epsilon, two))
@@ -335,7 +353,11 @@ def xi(x, a, epsilon):
 
 
 def sigmoid(x, a, epsilon):
+    """ 
+    sigmoid function from gMSE paper:
+    """
     XI = xi(x, a, epsilon)
+    # define constants to be used in the function
     zero = tf.constant(0.0, dtype=tf.float32)
     half = tf.constant(0.5, dtype=tf.float32)
     one = tf.constant(1.0, dtype=tf.float32)
@@ -349,7 +371,7 @@ def sigmoid(x, a, epsilon):
         tf.math.multiply(tf.math.negative(half), tf.math.pow(XI, four)), calc
     )
     term2 = tf.math.add(tf.math.multiply(half, tf.math.pow(XI, four)), calc)
-
+    # case distinction for the sigmoid function
     return tf.where(
         tf.less_equal(x, a),
         zero,
@@ -362,6 +384,8 @@ def sigmoid(x, a, epsilon):
 
 
 def xi_bar(x, a, epsilon):
+    """ 
+    xi_bar function from gMSE paper: -2/epsilon * (x-a+epsilon/2)"""
     minus_two = tf.constant(-2.0, dtype=tf.float32)
     m_two_over_epsilon = tf.math.divide(minus_two, epsilon)
     a_plus_epsilon_over_m_two = tf.math.add(a, tf.math.divide(epsilon, minus_two))
@@ -372,6 +396,8 @@ def xi_bar(x, a, epsilon):
 
 
 def sigmoid_bar(x, a, epsilon):
+    """ 
+    sigmoid_bar function from gMSE paper"""
     XI_BAR = xi_bar(x, a, epsilon)
     zero = tf.constant(0.0, dtype=tf.float32)
     half = tf.constant(0.5, dtype=tf.float32)
@@ -388,7 +414,7 @@ def sigmoid_bar(x, a, epsilon):
     )
     term2 = tf.math.add(tf.math.multiply(half, tf.math.pow(XI_BAR, four)), calc)
 
-    # print(XI)
+    # case distinction for the sigmoid_bar function
     return tf.where(
         tf.less_equal(x, tf.math.subtract(a, epsilon)),
         one,
@@ -399,7 +425,7 @@ def sigmoid_bar(x, a, epsilon):
         ),
     )
 
-
+# Define constants from original gMSE paper
 alpha_L = tf.constant(1.5, dtype=tf.float32)
 alpha_H = tf.constant(1.0, dtype=tf.float32)
 beta_L = tf.constant(30.0, dtype=tf.float32)
@@ -422,6 +448,7 @@ def Pen(
     t_L=t_L,
     t_H=t_H,
 ):
+    """ Penalty function from gMSE paper"""
     one = tf.constant(1.0, dtype=tf.float32)
     return tf.math.add(
         one,
@@ -454,6 +481,7 @@ def gSE(
     t_L=t_L,
     t_H=t_H,
 ):
+    """ gMSE function from gMSE paper: (g-g_hat)^2 * Pen(g, g_hat) = MSE * Pen(g, g_hat)"""
     return tf.math.multiply(
         tf.math.square(tf.subtract(tf.cast(g, tf.float32), g_hat)),
         Pen(
@@ -483,6 +511,7 @@ def gMSE(
     t_L=t_L,
     t_H=t_H,
 ):
+    """ Mean aggregated gMSE function from gMSE paper: mean(gMSE) = mean(MSE * Pen(g, g_hat))"""
     return tf.math.reduce_mean(
         gSE(g, g_hat, alpha_L, alpha_H, beta_L, beta_H, gamma_L, gamma_H, t_L, t_H)
     )
