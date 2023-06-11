@@ -4,32 +4,55 @@ import git
 import numpy as np
 import os
 import pandas as pd
+import random
 import sigopt_functions as sf
 import sigopt
 import tensorflow as tf
 
+SEED = 0
+
+def set_seeds(seed=SEED):
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    random.seed(seed)
+    tf.random.set_seed(seed)
+    np.random.seed(seed)
+
+
+def set_global_determinism(seed=SEED):
+    set_seeds(seed=seed)
+
+    os.environ['TF_DETERMINISTIC_OPS'] = '1'
+    os.environ['TF_CUDNN_DETERMINISTIC'] = '1'
+
+    tf.config.threading.set_inter_op_parallelism_threads(1)
+    tf.config.threading.set_intra_op_parallelism_threads(1)
+
+
+# Set seeds for reproducibility
+set_global_determinism(seed=SEED)
 
 os.environ["SIGOPT_API_TOKEN"] = "CDLCFJJUWDYYKMDCXOISTWNALSSWLQQGBJHEBNVKXFQMFWNE"
 os.environ["SIGOPT_PROJECT"] = "personalized-diabetes"
 DATASET = "basic_0.csv"
-DATASET_SELF = "self_sup_alt.csv"
+DATASET_SELF = "self_0.csv"
 
 
-def load_data(split: float, missingness_modulo: int):
+def load_data(split: float, missingness_modulo: int, search: bool):
     """
     Load data for baseline 4
     :param split: Float describing how much of the data to use for training
     :param missingness_modulo: Int n describing how much of the data to delete (keep only every nth row)
     :return: X_train, X_test, Y_train, Y_test, X_train_self, X_test_self, Y_train_self, Y_test_self as pandas dataframes
     """
-    df_self = pd.read_csv(DATASET_SELF)
-    print("Basic data read")
     df_basic = pd.read_csv(DATASET)
-
-    print("Self data read")
     patients_to_exclude = [1, 9, 10, 12, 16, 18, 19, 21, 22, 23, 24, 25, 26, 27, 29, 30]
     df_basic = df_basic[~df_basic.DeidentID.isin(patients_to_exclude)]
+    print("Basic data read")
+    df_self = pd.read_csv(DATASET_SELF)
     df_self = df_self[~df_self.DeidentID.isin(patients_to_exclude)]
+    print("Self data read")
+    if search:
+        df_self = df_self.sample(frac=0.1)
     # delete a fraction of the df rows according to data_missingness
     X_train, X_test, Y_train, Y_test = sf.get_train_test_split_search(
         df_basic, split, False
@@ -213,6 +236,7 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
     run.log_metric("train MSE", train_mse)
     run.log_metric("test gMSE", test_gmse)
     run.log_metric("test MSE", test_mse)
+    tf.keras.backend.clear_session()
     return
 
 
@@ -239,7 +263,7 @@ if __name__ == "__main__":
             "learning_rate_2": 0.001362939,
             "num_epochs_1": 13,
             "num_epochs_2": 10,
-            "batch_size": 64,
+            "batch_size": 32,
             "filter_1": 4,
             "kernel_1": 6,
             "stride_1": 2,
@@ -258,7 +282,7 @@ if __name__ == "__main__":
                 dict(
                     name="missingness_modulo",
                     type="int",
-                    grid=[10, 20, 50, 100, 200, 400, 800, 1000],
+                    grid=[10, 20, 50, 100, 200, 400, 800, 1000, 1500, 2000],
                 )
             ],
             metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
@@ -268,7 +292,7 @@ if __name__ == "__main__":
 
         for run in experiment.loop():
             with run:
-                data = load_data(0.8, run.params.missingness_modulo)
+                data = load_data(0.8, run.params.missingness_modulo, False)
                 for parameter, value in fixed_hyperparameters.items():
                     run.params[parameter] = value
                     run.log_metadata(parameter, value)
@@ -278,75 +302,31 @@ if __name__ == "__main__":
                 )
                 load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=True)
     else:
-        data = load_data(0.8, 1)
+        fixed_hyperparameters = {
+            "batch_size": 32,
+            "filter_1": 3,
+            "kernel_1": 6,
+            "stride_1": 2,
+            "pool_size_1": 3,
+            "pool_stride_1": 2,
+            "filter_2": 7,
+            "kernel_2": 6,
+            "stride_2": 2,
+            "pool_size_2": 6,
+            "pool_stride_2": 4,
+        }
+        data = load_data(0.8, 1, True)
         experiment = sigopt.create_experiment(
             name=f"Baseline_4_{name}",
             type="offline",
             parameters=[
                 dict(name="dropout_rate", type="double", bounds=dict(min=0.0, max=0.2)),
-                dict(
-                    name="learning_rate_1",
-                    type="double",
-                    bounds=dict(min=0.0001, max=0.002),
-                ),
-                dict(
-                    name="learning_rate_2",
-                    type="double",
-                    bounds=dict(min=0.0008, max=0.0015),
-                ),
+                dict(name="learning_rate_1", type="double", bounds=dict(min=0.0001, max=0.002)),
+                dict(name="learning_rate_2", type="double", bounds=dict(min=0.0001, max=0.002)),
                 dict(name="num_epochs_1", type="int", bounds=dict(min=5, max=15)),
-                dict(name="num_epochs_2", type="int", bounds=dict(min=8, max=12)),
-                dict(
-                    name="batch_size",
-                    type="categorical",
-                    categorical_values=["32", "64"],
-                ),
-                dict(name="filter_1", type="int", bounds=dict(min=2, max=4)),
-                dict(name="kernel_1", type="int", bounds=dict(min=5, max=7)),
-                dict(name="stride_1", type="int", bounds=dict(min=1, max=2)),
-                dict(name="pool_size_1", type="int", bounds=dict(min=1, max=3)),
-                dict(name="pool_stride_1", type="int", bounds=dict(min=1, max=2)),
-                dict(name="filter_2", type="int", bounds=dict(min=5, max=7)),
-                dict(name="kernel_2", type="int", bounds=dict(min=4, max=6)),
-                dict(name="stride_2", type="int", bounds=dict(min=1, max=2)),
-                dict(name="pool_size_2", type="int", bounds=dict(min=5, max=6)),
-                dict(name="pool_stride_2", type="int", bounds=dict(min=3, max=5)),
+                dict(name="num_epochs_2", type="int", bounds=dict(min=5, max=15)),
             ],
             metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
-            linear_constraints=[
-                dict(
-                    type="greater_than",
-                    threshold=0,
-                    terms=[
-                        dict(name="kernel_1", weight=1),
-                        dict(name="stride_1", weight=-1),
-                    ],
-                ),
-                dict(
-                    type="greater_than",
-                    threshold=0,
-                    terms=[
-                        dict(name="kernel_2", weight=1),
-                        dict(name="stride_2", weight=-1),
-                    ],
-                ),
-                dict(
-                    type="greater_than",
-                    threshold=0,
-                    terms=[
-                        dict(name="pool_size_1", weight=1),
-                        dict(name="pool_stride_1", weight=-1),
-                    ],
-                ),
-                dict(
-                    type="greater_than",
-                    threshold=0,
-                    terms=[
-                        dict(name="pool_size_1", weight=1),
-                        dict(name="pool_stride_1", weight=-1),
-                    ],
-                ),
-            ],
             parallel_bandwidth=1,
             budget=100,
         )
@@ -356,4 +336,7 @@ if __name__ == "__main__":
                 run.log_metadata(
                     "GPUs available", tf.config.list_physical_devices("GPU")
                 )
+                for parameter, value in fixed_hyperparameters.items():
+                    run.params[parameter] = value
+                    run.log_metadata(parameter, value)
                 load_data_train_model(run, data, CONV_INPUT_LENGTH)

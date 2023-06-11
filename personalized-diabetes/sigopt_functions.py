@@ -213,10 +213,7 @@ class GlucoseModel:
         test_dataset = tf.data.Dataset.from_tensor_slices((X_test, Y_test)).batch(
             batch_size
         )
-        # Let's run this!
-        print("Training model...")
         self.model.fit(train_dataset, epochs=epochs, validation_data=test_dataset)
-        print("Done training model.")
 
     def evaluate_model(self, X_test, Y_test):
         """
