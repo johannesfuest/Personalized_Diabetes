@@ -325,7 +325,7 @@ if __name__ == "__main__":
             ],
             metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
             parallel_bandwidth=1,
-            budget=100,
+            budget=20,
         )
         for run in experiment.loop():
             with run:
