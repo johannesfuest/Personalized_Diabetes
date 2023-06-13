@@ -251,7 +251,7 @@ if __name__ == "__main__":
             "pool_size_2": 6,
             "pool_stride_2": 4,
         }
-        data = load_data(0.8, 1)
+        data = load_data(0.8, 1000)
         experiment = sigopt.create_experiment(
             name=f"Baseline_3_{name}",
             type="offline",
