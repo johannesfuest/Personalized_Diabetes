@@ -51,7 +51,6 @@ def load_data(split: float, missingness_modulo: int, search: bool):
     print("Self data read")
     if search:
         df_self = df_self.sample(frac=0.1)
-    print(len(df_self))
     X_train, X_test, Y_train, Y_test = sf.get_train_test_split_search(
         df_basic, split, False
     )

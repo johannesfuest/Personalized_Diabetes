@@ -20,12 +20,8 @@ def set_seeds(seed=SEED):
 
 def set_global_determinism(seed=SEED):
     set_seeds(seed=seed)
-
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
     os.environ['TF_CUDNN_DETERMINISTIC'] = '1'
-
-    tf.config.threading.set_inter_op_parallelism_threads(1)
-    tf.config.threading.set_intra_op_parallelism_threads(1)
 
 
 # Set seeds for reproducibility
@@ -321,7 +317,7 @@ if __name__ == "__main__":
             "pool_size_2": 6,
             "pool_stride_2": 4,
         }
-        data = load_data(0.8, 1000, True)
+        data = load_data(0.8, 100, True)
         experiment = sigopt.create_experiment(
             name=f"Final_model_search_{name}",
             type="offline",
@@ -336,7 +332,7 @@ if __name__ == "__main__":
             ],
             metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
             parallel_bandwidth=1,
-            budget=100,
+            budget=20,
         )
         for run in experiment.loop():
             with run:
