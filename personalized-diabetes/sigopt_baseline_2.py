@@ -102,8 +102,8 @@ def load_data_train_model(run, data, CONV_INPUT_LENGTH, write_preds=False):
 
     x_train_ids = X_train["DeidentID"]
     x_test_ids = X_test["DeidentID"]
-    X_train.drop(columns=["DeidentID"], inplace=True)
-    X_test.drop(columns=["DeidentID"], inplace=True)
+    X_train = X_train.drop(columns=["DeidentID"])
+    X_test = X_test.drop(columns=["DeidentID"])
 
     # create the model
     with tf.device("/device:GPU:0"):
