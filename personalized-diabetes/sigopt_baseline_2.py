@@ -250,14 +250,16 @@ if __name__ == "__main__":
             "pool_size_2": 6,
             "pool_stride_2": 4,
         }
-        data = load_data(0.8, 1000, True)
+        data = load_data(0.8, 100, True)
         experiment = sigopt.create_experiment(
             name=f"Baseline_2_{name}",
             type="offline",
             parameters=[
                 dict(name="dropout_rate", type="double", bounds=dict(min=0.0, max=0.2)),
-                dict(name="learning_rate", type="double", bounds=dict(min=0.0001, max=0.002)),
-                dict(name="num_epochs", type="int", bounds=dict(min=5, max=15)),
+                dict(name="learning_rate_1", type="double", bounds=dict(min=0.0001, max=0.002)),
+                dict(name="num_epochs_1", type="int", bounds=dict(min=5, max=15)),
+                dict(name="learning_rate_2", type="double", bounds=dict(min=0.0001, max=0.002)),
+                dict(name="num_epochs_2", type="int", bounds=dict(min=5, max=15)),
             ],
             metrics=[dict(name="test gMSE", strategy="optimize", objective="minimize")],
             parallel_bandwidth=1,
