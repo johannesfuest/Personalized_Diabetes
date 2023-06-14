@@ -47,9 +47,11 @@ def load_data(split: float, missingness_modulo: int, search: bool):
     print("Basic data read")
     df_self = pd.read_csv(DATASET_SELF)
     df_self = df_self[~df_self.DeidentID.isin(patients_to_exclude)]
+    print(len(df_self))
     print("Self data read")
     if search:
         df_self = df_self.sample(frac=0.1)
+    print(len(df_self))
     X_train, X_test, Y_train, Y_test = sf.get_train_test_split_search(
         df_basic, split, False
     )
