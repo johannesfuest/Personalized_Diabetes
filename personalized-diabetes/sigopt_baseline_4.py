@@ -255,11 +255,11 @@ if __name__ == "__main__":
 
     if args.experiment:
         fixed_hyperparameters = {
-            "dropout_rate": 0.0579,
-            "learning_rate_1": 0.0013164,
-            "learning_rate_2": 0.001362939,
-            "num_epochs_1": 13,
-            "num_epochs_2": 10,
+            "dropout_rate": 0.1264856752292274,
+            "learning_rate_1": 0.0008236880714098919,
+            "learning_rate_2": 0.002,
+            "num_epochs_1": 15,
+            "num_epochs_2": 13,
             "batch_size": 32,
             "filter_1": 4,
             "kernel_1": 6,

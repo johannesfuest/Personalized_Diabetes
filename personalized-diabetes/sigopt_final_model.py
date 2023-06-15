@@ -266,11 +266,13 @@ if __name__ == "__main__":
     sha = repo.head.object.hexsha
     if args.experiment:
         fixed_hyperparameters = {
-            "dropout_rate": 0.04789191476471058,
-            "learning_rate_1": 0.0005718050423761871,
-            "learning_rate_2": 0.0010113473984109185,
-            "num_epochs_1": 11,
-            "num_epochs_2": 10,
+            "dropout_rate": 0.06336200724212863,
+            "learning_rate_1": 0.0002,
+            "learning_rate_2": 0.0007590316633186938,
+            "learning_rate_3": 0.0001280070999873974,
+            "num_epochs_1": 13,
+            "num_epochs_2": 9,
+            "num_epochs_3": 5,
             "batch_size": 32,
             "filter_1": 3,
             "kernel_1": 6,

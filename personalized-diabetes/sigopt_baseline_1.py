@@ -149,8 +149,8 @@ if __name__ == "__main__":
 
     if args.experiment:
         fixed_hyperparameters = {
-            "dropout_rate": 0.0579,
-            "learning_rate": 0.001362939,
+            "dropout_rate": 0.047392102582145226,
+            "learning_rate": 0.0014043829620690904,
             "num_epochs": 10,
             "batch_size": 32,
             "filter_1": 4,
