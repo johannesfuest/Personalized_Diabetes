@@ -1,0 +1,12 @@
+pandas
+numpy
+plotly
+scikit-learn
+scipy==1.10.0
+statsmodels
+tensorflow
+notebook
+black
+matplotlib
+kaleido
+gitpython
