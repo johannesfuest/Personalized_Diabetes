@@ -227,7 +227,7 @@ if __name__ == "__main__":
 
         for run in experiment.loop():
             with run:
-                data = load_data(0.8, run.params.missingness_modulo)
+                data = load_data(1.0, run.params.missingness_modulo)
                 for parameter, value in fixed_hyperparameters.items():
                     run.params[parameter] = value
                     run.log_metadata(parameter, value)

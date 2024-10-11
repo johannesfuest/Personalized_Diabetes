@@ -1,4 +1,4 @@
-name: cs230
+name: tf_gpu
 channels:
   - conda-forge
 dependencies:

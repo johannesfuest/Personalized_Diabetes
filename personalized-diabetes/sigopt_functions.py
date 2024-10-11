@@ -2,6 +2,7 @@ import pandas as pd
 import sys
 import tensorflow as tf
 import tensorflow.keras.layers as tfl
+import matplotlib.pyplot as plt
 import warnings
 
 
@@ -16,18 +17,18 @@ class ConvLayer(tf.keras.layers.Layer):
     contains two 1D Convolutions with max pooling, dropout and batchnorm between.
     Each layer is further defined by the following parameters:
     - CONV_INPUT_LENGTH: the length of the input to the convolutional layer (288 in our case due to 5 minute intervals)
-    - run: the SigOpt run object containing the parameters for the layer
+    - fixed_hyperparemeters: a dictionary containing the hyperparameters for the model
     """
 
-    def __init__(self, CONV_INPUT_LENGTH: int, run, **kwargs):
+    def __init__(self, CONV_INPUT_LENGTH: int, fixed_hyperparameters, **kwargs):
         """Constructor for the ConvLayer class."""
         super(ConvLayer, self).__init__(**kwargs)
         self.CONV_INPUT_LENGTH = CONV_INPUT_LENGTH
         # 1st CONV
         self.conv1 = tfl.Conv1D(
-            filters=run.params.filter_1,
-            kernel_size=run.params.kernel_1,
-            strides=run.params.stride_1,
+            filters=fixed_hyperparameters["filter_1"],
+            kernel_size=fixed_hyperparameters["kernel_1"],
+            strides=fixed_hyperparameters["stride_1"],
             padding="valid",
             use_bias=False,
             activation="relu",
@@ -36,16 +37,16 @@ class ConvLayer(tf.keras.layers.Layer):
         self.norm1 = tfl.BatchNormalization(axis=2)
         # Max Pool
         self.pool1 = tfl.MaxPool1D(
-            pool_size=run.params.pool_size_1,
-            strides=run.params.pool_stride_1,
+            pool_size=fixed_hyperparameters["pool_size_1"],
+            strides=fixed_hyperparameters["pool_stride_1"],
             padding="valid",
         )
-        self.drop1 = tfl.Dropout(rate=run.params.dropout_rate)
+        self.drop1 = tfl.Dropout(rate=fixed_hyperparameters["dropout_rate"])
         # 2nd CONV
         self.conv2 = tfl.Conv1D(
-            filters=run.params.filter_2,
-            kernel_size=run.params.kernel_2,
-            strides=run.params.stride_2,
+            filters=fixed_hyperparameters["filter_2"],
+            kernel_size=fixed_hyperparameters["kernel_2"],
+            strides=fixed_hyperparameters["stride_2"],
             padding="valid",
             use_bias=False,
             activation="relu",
@@ -54,12 +55,12 @@ class ConvLayer(tf.keras.layers.Layer):
         self.norm2 = tfl.BatchNormalization(axis=2)
         # Max Pool
         self.pool2 = tfl.MaxPool1D(
-            pool_size=run.params.pool_size_2,
-            strides=run.params.pool_stride_2,
+            pool_size=fixed_hyperparameters["pool_size_2"],
+            strides=fixed_hyperparameters["pool_stride_2"],
             padding="valid",
         )
         # Dropout
-        self.drop2 = tfl.Dropout(rate=run.params.dropout_rate)
+        self.drop2 = tfl.Dropout(rate=fixed_hyperparameters["dropout_rate"])
         # Now flatten the Matrix into a 1D vector (shape 1x204)
         self.flatten = tfl.Flatten()
 
@@ -147,10 +148,10 @@ class GlucoseModel:
         )
 
         # Create the four custom conv-layers
-        diabetes_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(diabetes_input)
-        meal_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(meal_input)
-        smbg_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(smbg_input)
-        excercise_conv = ConvLayer(CONV_INPUT_LENGTH, self.run)(excercise_input)
+        diabetes_conv = ConvLayer(CONV_INPUT_LENGTH, self.fixed_hyperparameters)(diabetes_input)
+        meal_conv = ConvLayer(CONV_INPUT_LENGTH, self.fixed_hyperparameters)(meal_input)
+        smbg_conv = ConvLayer(CONV_INPUT_LENGTH, self.fixed_hyperparameters)(smbg_input)
+        excercise_conv = ConvLayer(CONV_INPUT_LENGTH, self.fixed_hyperparameters)(excercise_input)
 
         # Concat the result of conv-layers
         post_conv = tf.concat(
@@ -162,11 +163,11 @@ class GlucoseModel:
         # Now fully connect layers
         # Use multiples of two as recommended in class.
         FC1 = tfl.Dense(units=512, activation="relu")(post_conv)
-        DR1 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC1)
+        DR1 = tfl.Dropout(rate=self.fixed_hyperparameters["dropout_rate"])(FC1)
         FC2 = tfl.Dense(units=256, activation="relu")(DR1)
-        DR2 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC2)
+        DR2 = tfl.Dropout(rate=self.fixed_hyperparameters["dropout_rate"])(FC2)
         FC3 = tfl.Dense(units=128, activation="relu")(DR2)
-        DR3 = tfl.Dropout(rate=self.run.params.dropout_rate)(FC3)
+        DR3 = tfl.Dropout(rate=self.fixed_hyperparameters["dropout_rate"])(FC3)
         FC4 = tfl.Dense(units=64, activation="relu")(DR3)
 
         # The output does NOT have an activation (regression task)
@@ -179,8 +180,8 @@ class GlucoseModel:
         model = tf.keras.Model(inputs=input, outputs=output)
         return model
 
-    def __init__(self, CONV_INPUT_LENGTH: int, self_sup: bool, run):
-        self.run = run
+    def __init__(self, CONV_INPUT_LENGTH: int, self_sup: bool, fixed_hyperparameters):
+        self.fixed_hyperparameters = fixed_hyperparameters
         self.model = self.get_model(CONV_INPUT_LENGTH, self_sup)
 
     def set_model(self, model):
@@ -213,7 +214,16 @@ class GlucoseModel:
         test_dataset = tf.data.Dataset.from_tensor_slices((X_test, Y_test)).batch(
             batch_size
         )
-        self.model.fit(train_dataset, epochs=epochs, validation_data=test_dataset)
+        history = self.model.fit(train_dataset, epochs=epochs, validation_data=test_dataset)
+            # Plot loss evolution
+        plt.figure()
+        plt.plot(history.history['loss'], label='Training Loss')
+        plt.plot(history.history['val_loss'], label='Validation Loss')
+        plt.title('Loss Evolution during Training Baseline 1')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.savefig('loss_evolution.png')
 
     def evaluate_model(self, X_test, Y_test):
         """

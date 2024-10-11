@@ -49,6 +49,7 @@ def load_data(split: float, missingness_modulo: int, search: bool):
     df_self = df_self[~df_self.DeidentID.isin(patients_to_exclude)]
     print(len(df_self))
     print("Self data read")
+    # TODO: figure out why this is here
     if search:
         df_self = df_self.sample(frac=0.1)
     X_train, X_test, Y_train, Y_test = sf.get_train_test_split_search(
@@ -230,7 +231,7 @@ if __name__ == "__main__":
 
         for run in experiment.loop():
             with run:
-                data = load_data(0.8, run.params.missingness_modulo, False)
+                data = load_data(1.0, run.params.missingness_modulo, False)
                 for parameter, value in fixed_hyperparameters.items():
                     run.params[parameter] = value
                     run.log_metadata(parameter, value)
