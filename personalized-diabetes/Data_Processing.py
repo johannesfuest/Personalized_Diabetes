@@ -199,6 +199,7 @@ def preprocess_data(test: bool = False):
         filename="MonitorCorrectionBolus", date_cols=tables["MonitorCorrectionBolus"]
     )
     df_MonitorMeal = load_table(filename="MonitorMeal", date_cols=tables["MonitorMeal"])
+    
     df_MonitorMealBolus = load_table(
         filename="MonitorMealBolus", date_cols=tables["MonitorMealBolus"]
     )
@@ -212,18 +213,24 @@ def preprocess_data(test: bool = False):
     df_MonitorBasalBolus = df_MonitorBasalBolus[
         ["DeidentID", "LocalDeliveredDtTm", "DeliveredValue"]
     ]
+    print(f"Missing values in MonitorBasalBolus: {df_MonitorBasalBolus.isnull().sum().sum() / df_MonitorBasalBolus.size}")
     df_MonitorCGM = df_MonitorCGM[["DeidentID", "LocalDtTm", "CGM"]]
+    print(f"Missing values in MonitorCGM: {df_MonitorCGM.isnull().sum().sum() / df_MonitorCGM.size}")
     df_MonitorCorrectionBolus = df_MonitorCorrectionBolus[
         ["DeidentID", "LocalDeliveredDtTm", "BolusSource", "DeliveredValue"]
     ]
+    print(f"Missing values in MonitorCorrectionBolus: {df_MonitorCorrectionBolus.isnull().sum().sum() / df_MonitorCorrectionBolus.size}")
     df_MonitorMeal = df_MonitorMeal[["DeidentID", "LocalDtTm", "MealSize", "SMBG"]]
+    print(f"Missing values in MonitorMeal: {df_MonitorMeal.isnull().sum().sum() / df_MonitorMeal.size}")
     df_MonitorMealBolus = df_MonitorMealBolus[
         ["DeidentID", "LocalDeliveredDtTm", "DeliveredValue"]
     ]
+    print(f"Missing values in MonitorMealBolus: {df_MonitorMealBolus.isnull().sum().sum() / df_MonitorMealBolus.size}")
     df_MonitorSMBG = df_MonitorSMBG[df_MonitorSMBG["IsCalibration"] == 0]
     df_MonitorSMBG = df_MonitorSMBG[
         ["DeidentID", "LocalDtTm", "SMBG", "IsHypo", "DidTreat", "Carbs"]
     ]
+    print(f"Missing values in MonitorSMBG: {df_MonitorSMBG.isnull().sum().sum() / df_MonitorSMBG.size}")
     df_MonitorSystem = df_MonitorSystem[
         [
             "DeidentID",
@@ -235,9 +242,11 @@ def preprocess_data(test: bool = False):
             "Exercising",
         ]
     ]
+    print(f"Missing values in MonitorSystem: {df_MonitorSystem.isnull().sum().sum() / df_MonitorSystem.size}")
     df_MonitorTotalBolus = df_MonitorTotalBolus[
         ["DeidentID", "LocalDeliveredDtTm", "DeliveredValue"]
     ]
+    print(f"Missing values in MonitorTotalBolus: {df_MonitorTotalBolus.isnull().sum().sum() / df_MonitorTotalBolus.size}")
     df_MonitorCorrectionBolus["LocalDtTm"] = df_MonitorCorrectionBolus[
         "LocalDeliveredDtTm"
     ]

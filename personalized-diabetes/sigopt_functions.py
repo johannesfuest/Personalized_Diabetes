@@ -188,7 +188,7 @@ class GlucoseModel:
         self.model = model
 
     def train_model(
-        self, epochs, X_train, X_test, Y_train, Y_test, lr, batch_size, self_sup: bool
+        self, epochs, X_train, X_test, Y_train, Y_test, lr, batch_size, self_sup: bool, missingness_modulo: int, name: str
     ):
         """
         A function that trains the given model on the given data.
@@ -199,6 +199,9 @@ class GlucoseModel:
         :param Y_test: The testing data labels
         :param lr: The learning rate
         :param batch_size: The batch size
+        :param self_sup: Boolean indicating whether dataframe is self-supervised or not
+        :param missingness_modulo: The modulo for missingness
+        :param name: The name of the model being trained
         """
         # Create optimizer (Adam with specified learning rate - use default parameters otherwise. )
         adam_optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
@@ -214,16 +217,21 @@ class GlucoseModel:
         test_dataset = tf.data.Dataset.from_tensor_slices((X_test, Y_test)).batch(
             batch_size
         )
-        history = self.model.fit(train_dataset, epochs=epochs, validation_data=test_dataset)
-            # Plot loss evolution
+        validation_steps = len(X_test) // batch_size
+
+        history = self.model.fit(train_dataset, epochs=epochs, validation_data=test_dataset, validation_steps=validation_steps)
+        
+        # Plot loss evolution
         plt.figure()
         plt.plot(history.history['loss'], label='Training Loss')
-        plt.plot(history.history['val_loss'], label='Validation Loss')
-        plt.title('Loss Evolution during Training Baseline 1')
+        plt.plot(history.history['val_loss'], label='Test Loss')
+        plt.title(f'Loss Evolution for {name} on every {missingness_modulo}th row')
         plt.xlabel('Epoch')
         plt.ylabel('Loss')
         plt.legend()
-        plt.savefig('loss_evolution.png')
+        plt.savefig(f'loss_evolution_{name}_{missingness_modulo}.png')
+        plt.close()
+        
 
     def evaluate_model(self, X_test, Y_test):
         """
@@ -345,7 +353,7 @@ def get_train_test_split_search(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
     :return: X_train, X_test, Y_train, Y_test according to the given split
     """
     # keep only the first TRAIN_TEST_SPLIT * 100 rows of df
-    n = int(TRAIN_TEST_SPLIT * 100 * len(df))
+    n = int(TRAIN_TEST_SPLIT * len(df))
     df = df.head(n)
     return get_train_test_split_all(df, TRAIN_TEST_SPLIT, self_sup)
 

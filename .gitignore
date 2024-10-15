@@ -1,3 +1,5 @@
 __pycache__/
 cs230/
 *.csv
+*.png
+*.txt

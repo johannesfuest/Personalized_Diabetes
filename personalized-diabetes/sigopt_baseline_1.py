@@ -9,6 +9,7 @@ import sigopt_functions as sf
 import sigopt
 import tensorflow as tf
 import sys
+from tqdm import tqdm
 
 SEED = 0
 
@@ -45,7 +46,7 @@ def load_data(split: float, missingness_modulo: int):
     patients_to_exclude = [1, 9, 10, 12, 16, 18, 19, 21, 22, 23, 24, 25, 26, 27, 29, 30]
     df_basic = df_basic[~df_basic.DeidentID.isin(patients_to_exclude)]
     print("data read")
-    X_train, X_test, Y_train, Y_test = sf.get_train_test_split_search(
+    X_train, X_test, Y_train, Y_test = sf.get_train_test_split_all(
         df_basic, split, False
     )
     X_train, Y_train = sf.apply_data_missingness(
@@ -82,54 +83,34 @@ def load_data_train_model(fixed_hyperparameters, data, CONV_INPUT_LENGTH, write_
             fixed_hyperparameters["learning_rate"],
             int(fixed_hyperparameters["batch_size"]),
             False,
+            fixed_hyperparameters["missingness_modulo"],
+            "Sup. DL",
         )
-
-    train_gmse, train_mse = model.evaluate_model(X_train, Y_train)
-    test_gmse, test_mse = model.evaluate_model(X_test, Y_test)
-    # bootstrap 95% CI of test set performance
-    bootstrapped_gmse = []
-    bootstrapped_mse = []
-    for i in range(1000):
-        bootstrap_indices = np.random.choice(
-            range(len(X_test)), size=len(X_test), replace=True
-        )
-        bootstrapped_X = X_test.iloc[bootstrap_indices]
-        bootstrapped_Y = Y_test.iloc[bootstrap_indices]
-        bootstrapped_gmse, bootstrapped_mse = model.evaluate_model(
-            bootstrapped_X, bootstrapped_Y
-        )
-        bootstrapped_gmse.append(bootstrapped_gmse)
-        bootstrapped_mse.append(bootstrapped_mse)
-    print(f"Bootstrapped 95% CI of test gMSE: {np.percentile(bootstrapped_gmse, [2.5, 97.5])}")
-    print(f"Bootstrapped 95% CI of test MSE: {np.percentile(bootstrapped_mse, [2.5, 97.5])}")
     
-        
-    
-    print(f"len(x_train){len(X_train)})")
-    print(f"len(x_test){len(X_test)})")
-    print(f"train_mse{train_mse})")
-    print(f"train_gme{train_gmse})")
-    print(f"test_mse{test_mse})")
-    print(f"test_gme{test_gmse})")
-
-    print("Y-TRAIN:")
-    print(Y_train.describe())
-    print("Y-HAT-TRAIN:")
+        train_gmse, train_mse = model.evaluate_model(X_train, Y_train)
+        test_gmse, test_mse = model.evaluate_model(X_test, Y_test)
     train_preds = pd.DataFrame(model.model.predict(X_train))
     train_preds["y"] = Y_train["CGM"].values
-    print(train_preds.describe())
-
- 
+    
     train_preds["experiment"] = "baseline_1_train"
-    print("Y-TEST:")
-    print(Y_test.describe())
-    print("Y-HAT-TEST:")
     test_preds = pd.DataFrame(model.model.predict(X_test))
     test_preds["y"] = Y_test["CGM"].values
-   
     test_preds["experiment"] = "baseline_1_test"
-    print(test_preds.describe())
-
+    print(test_preds.columns)
+    # bootstrap 95% CIs for gmse
+    n_bootstraps = 1000
+    bootstrapped_gmse = np.zeros(n_bootstraps)
+    for i in tqdm(range(n_bootstraps)):
+        bootstrapped_data = test_preds.sample(frac=1, replace=True)
+        bootstrapped_gmse[i] = sf.gMSE(
+            bootstrapped_data["y"].values, bootstrapped_data[0].values
+        )
+        # bootstrap 95% CI of test set performance
+    print(f"Bootstrapped 95% CI of test gMSE: {np.percentile(bootstrapped_gmse, [2.5, 97.5])}")
+    with open(f"baseline_1_{fixed_hyperparameters['missingness_modulo']}.txt", "w") as f:
+        f.write(f"Bootstrapped 95% CI of test gMSE: {np.percentile(bootstrapped_gmse, [2.5, 97.5])}\n")
+        f.write(f"Train gMSE: {train_gmse}, Test gMSE: {test_gmse}\n")
+    
     if write_preds:
         if not os.path.exists("preds"):
             os.mkdir("preds")
@@ -153,16 +134,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     name = args.name
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
-    cuda_version = tf.sysconfig.get_build_info().get('cuda_version', 'Unknown')
-    cudnn_version = tf.sysconfig.get_build_info().get('cudnn_version', 'Unknown')
-
-    print("Built with CUDA:", tf.test.is_built_with_cuda())
-    print("Built with GPU support:", tf.test.is_built_with_gpu_support())
-    print(f"CUDA version: {cuda_version}")
-    print(f"cuDNN version: {cudnn_version}")
-    from tensorflow.python.client import device_lib
-    print(device_lib.list_local_devices())
-    sys.exit(0)
     if not name:
         name = ""
 
@@ -189,7 +160,7 @@ if __name__ == "__main__":
 
         missingness_modulos = [10, 20, 50, 100, 200, 400, 800, 1000, 1500, 2000]
         for mm in missingness_modulos:
-            data = load_data(1.0, mm)
+            data = load_data(0.8, mm)
             fixed_hyperparameters["missingness_modulo"] = mm
             print(f"GPUs available:{tf.config.list_physical_devices('GPU')}")
             
