@@ -91,18 +91,28 @@ def remove_unrealistic_entries(df):
     :param df: The dataframe to be cleaned
     :return: The resulting cleaned dataframe
     """
+    print(f"Starting cleaning of dataframe with {df.shape[0]} rows")
     print("Dropping rows damaged insulin values")
+    df_size = df.shape[0]
     df = df[df[[f"insulin {j}" for j in range(1, 289)]].min(axis=1) >= 0]
     df = df[df[[f"insulin {j}" for j in range(1, 289)]].max(axis=1) < 1000]
+    print(f"Dropped {df_size - df.shape[0]} rows with damaged insulin values")
     print("Dropping rows with damaged carb values")
+    df_size = df.shape[0]
     df = df[df[[f"carbs {j}" for j in range(1, 289)]].min(axis=1) >= 0]
     df = df[df[[f"carbs {j}" for j in range(1, 289)]].max(axis=1) < 1000]
+    print(f"Dropped {df_size - df.shape[0]} rows with damaged carb values")
     print("Dropping rows with damaged exercise values")
+    df_size = df.shape[0]
     df = df[df[[f"exercise {j}" for j in range(1, 289)]].min(axis=1) >= 0]
     df = df[df[[f"exercise {j}" for j in range(1, 289)]].max(axis=1) < 100]
+    print(f"Dropped {df_size - df.shape[0]} rows with damaged exercise values")
+    
     print("Dropping rows with damaged mealsize values")
+    df_size = df.shape[0]
     df = df[df[[f"mealsize {j}" for j in range(1, 289)]].min(axis=1) >= 0]
     df = df[df[[f"mealsize {j}" for j in range(1, 289)]].max(axis=1) < 1000]
+    print(f"Dropped {df_size - df.shape[0]} rows with damaged mealsize values")
     return df
 
 

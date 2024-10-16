@@ -119,7 +119,6 @@ def load_data_train_model(fixed_hyperparameters, data, CONV_INPUT_LENGTH, write_
             bootstrapped_gmse[j] = sf.gMSE(
                 bootstrapped_data["y"].values, bootstrapped_data[0].values
             )
-        # bootstrapped_gmse = np.clip(bootstrapped_gmse, a_max=10000000, a_min=0)
         bootstrap_lower.append(np.percentile(bootstrapped_gmse, 2.5))
         bootstrap_upper.append(np.percentile(bootstrapped_gmse, 97.5))
         
@@ -145,17 +144,10 @@ def load_data_train_model(fixed_hyperparameters, data, CONV_INPUT_LENGTH, write_
         test_mses.append(test_mse)
         test_gmses.append(test_gmse)
 
-    # train_gmses = np.clip(train_gmses, a_max=10000000, a_min=0)
-    # train_mses = np.clip(train_mses, a_max=10000000, a_min=0)
-    # test_gmses = np.clip(test_gmses, a_max=10000000, a_min=0)
-    # test_mses = np.clip(test_mses, a_max=10000000, a_min=0)
-
     train_mse = 0
     train_gmse = 0
     test_mse = 0
     test_gmse = 0
-    # bootstrap_lower = np.clip(bootstrap_lower, a_max=10000000, a_min=0)
-    # bootstrap_upper = np.clip(bootstrap_upper, a_max=10000000, a_min=0)
     bootstrap_lower = np.mean(bootstrap_lower)
     bootstrap_upper = np.mean(bootstrap_upper)
     with open(f"baseline_3_{fixed_hyperparameters['missingness_modulo']}.txt", "w") as f:

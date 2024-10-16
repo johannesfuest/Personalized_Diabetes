@@ -96,7 +96,6 @@ def load_data_train_model(fixed_hyperparameters, data, CONV_INPUT_LENGTH, write_
     test_preds = pd.DataFrame(model.model.predict(X_test))
     test_preds["y"] = Y_test["CGM"].values
     test_preds["experiment"] = "baseline_1_test"
-    print(test_preds.columns)
     # bootstrap 95% CIs for gmse
     n_bootstraps = 1000
     bootstrapped_gmse = np.zeros(n_bootstraps)
@@ -106,7 +105,6 @@ def load_data_train_model(fixed_hyperparameters, data, CONV_INPUT_LENGTH, write_
             bootstrapped_data["y"].values, bootstrapped_data[0].values
         )
         # bootstrap 95% CI of test set performance
-    print(f"Bootstrapped 95% CI of test gMSE: {np.percentile(bootstrapped_gmse, [2.5, 97.5])}")
     with open(f"baseline_1_{fixed_hyperparameters['missingness_modulo']}.txt", "w") as f:
         f.write(f"Bootstrapped 95% CI of test gMSE: {np.percentile(bootstrapped_gmse, [2.5, 97.5])}\n")
         f.write(f"Train gMSE: {train_gmse}, Test gMSE: {test_gmse}\n")

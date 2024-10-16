@@ -180,11 +180,9 @@ def load_data_train_model(fixed_hyperparameters, data, CONV_INPUT_LENGTH, write_
         n_bootstraps = 1000
         for j in tqdm(range(n_bootstraps)):
             bootstrapped_data = test_preds.sample(frac=1, replace=True)
-            bootstrapped_gmse = sf.gMSE(
+            bootstrapped_gmse[j] = sf.gMSE(
                 bootstrapped_data["y"].values, bootstrapped_data[0].values
             )
-            bootstrapped_gmse[j] = bootstrapped_gmse
-        # bootstrapped_gmses = np.clip(bootstrapped_gmses, a_max=10000000, a_min=0)
         bootstrap_lower.append(np.percentile(bootstrapped_gmse, 2.5))
         bootstrap_upper.append(np.percentile(bootstrapped_gmse, 97.5))
 
@@ -214,9 +212,6 @@ def load_data_train_model(fixed_hyperparameters, data, CONV_INPUT_LENGTH, write_
         test_mses.append(test_mse)
         test_gmses.append(test_gmse)
 
-
-
-
     train_mse = 0
     train_gmse = 0
     test_mse = 0
@@ -230,7 +225,7 @@ def load_data_train_model(fixed_hyperparameters, data, CONV_INPUT_LENGTH, write_
         train_mse += weights_train[k] * train_mses[k]
         train_gmse += weights_train[k] * train_gmses[k]
         test_mse += weights_test[k] * test_mses[k]
-        test_gmse += weights_test[k] * test_gmses[KeyboardInterrupt]
+        test_gmse += weights_test[k] * test_gmses[k]
     train_mse /= sum(weights_train)
     train_gmse /= sum(weights_train)
     test_mse /= sum(weights_test)
