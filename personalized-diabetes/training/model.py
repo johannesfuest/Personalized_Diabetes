@@ -84,7 +84,7 @@ class GlucoseModel(nn.Module):
 
         dropout_rate = fixed_hyperparameters["dropout_rate"]
 
-        self.fc1 = nn.Linear(512)
+        self.fc1 = nn.Linear(CONV_INPUT_LENGTH, 512)
         self.drop_fc1 = nn.Dropout(p=dropout_rate)
         self.fc2 = nn.Linear(512, 256)
         self.drop_fc2 = nn.Dropout(p=dropout_rate)

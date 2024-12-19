@@ -1,6 +1,6 @@
 import pandas as pd
 from training_pipeline import run_optuna_study
-from utils import get_train_test_split_across_patients, get_train_test_split_within_patient
+from utils import get_train_test_split_across_patients, get_train_test_split_single_patient
 
 DATASET = "basic_0.csv"
 DATASET_SELF = "self_0.csv"
@@ -12,17 +12,25 @@ patients = [p for p in patients if p not in patients_to_exclude]
 
 
 def run_experiment(baseline: int, test: bool):
-    multipatient = True
-    self_sup = False
-    finetune = False
-    if baseline == 2:
-        self_sup = True
-    elif baseline == 3:
+    
+    if baseline == 1:
         multipatient = True
+        self_sup = False
+        finetune = False
+    elif baseline == 2:
+        multipatient = True
+        self_sup = True
+        finetune = False
+    elif baseline == 3:
+        multipatient = False
+        self_sup = False
+        finetune = False
     elif baseline == 4:
         multipatient = False
         self_sup = True
+        finetune = False
     else:
+        multipatient = True
         self_sup = True
         finetune = True
         
@@ -46,7 +54,7 @@ def run_experiment(baseline: int, test: bool):
         X_train, X_val, X_test, Y_train, Y_val, Y_test = get_train_test_split_across_patients(df_basic, 0.8, False)
         
         if self_sup:
-            X_train_self, X_val_self, X_test_self, Y_train_self, Y_val_self, Y_test_self = get_train_test_split_across_patients(df_self, 0.8, self_sup)
+            X_train_self, X_val_self, X_test_self, Y_train_self, Y_val_self, Y_test_self = get_train_test_split_across_patients(df_self, 0.8, True)
         else:
             X_train_self = None
             Y_train_self = None
@@ -59,9 +67,9 @@ def run_experiment(baseline: int, test: bool):
         
     else:
         for patient in patients:
-            X_train, X_val, X_test, Y_train, Y_val, Y_test = get_train_test_split_within_patient(df_basic, 0.8, patient, False)
+            X_train, X_val, X_test, Y_train, Y_val, Y_test = get_train_test_split_single_patient(df_basic, 0.8, patient, False)
             if self_sup:
-                X_train_self, X_val_self, X_test_self, Y_train_self, Y_val_self, Y_test_self = get_train_test_split_within_patient(df_self, 0.8, patient, self_sup)
+                X_train_self, X_val_self, X_test_self, Y_train_self, Y_val_self, Y_test_self = get_train_test_split_single_patient(df_self, 0.8, patient, self_sup)
             else:
                 X_train_self = None
                 Y_train_self = None

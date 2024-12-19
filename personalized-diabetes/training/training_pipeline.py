@@ -202,7 +202,7 @@ def objective(trial,
     }
 
     # Assuming input length matches what was done previously
-    input_length = X_train.shape[1]  # should be (batch, input_length) after reshape
+    input_length = X_train.shape[1] - 1  # should be (batch, input_length) after reshape, -1 is due to patient id
 
     model = GlucoseModel(CONV_INPUT_LENGTH=input_length, self_sup=self_sup, fixed_hyperparameters=fixed_hyperparameters).to(device)
     criterion = gMSE
