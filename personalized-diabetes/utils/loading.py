@@ -20,6 +20,7 @@ def load_table(filename:str, date_cols=[], nrows=None):
         date_format='%Y-%m-%d %H:%M:%S',
         parse_dates=date_cols
     )
-
+    if "DeidentID" in df.columns:
+        df["DeidentID"] = df["DeidentID"].astype(int)
     return df
 
