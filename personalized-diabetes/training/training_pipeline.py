@@ -294,3 +294,37 @@ def objective(trial,
         final_metric = best_val_loss_sup
 
     return final_metric
+
+
+def run_optuna_study(
+    df: pd.DataFrame,
+    df_ss: pd.DataFrame,
+    multi_patient: bool,
+    self_sup: bool,
+    individualized_finetuning: bool,
+    patients: list,
+    n_trials: int,
+    TRAIN_TEST_SPLIT: float,
+    eval_frequency: int,
+    direction: str = "minimize",
+):
+    """
+    Function to run an Optuna study.
+    """
+    study = optuna.create_study(direction=direction)
+    study.optimize(
+        lambda trial: objective(
+            trial,
+            df,
+            df_ss,
+            multi_patient,
+            self_sup,
+            individualized_finetuning,
+            patients,
+            TRAIN_TEST_SPLIT,
+            eval_frequency,
+        ),
+        n_trials=n_trials,
+    )
+
+    return study

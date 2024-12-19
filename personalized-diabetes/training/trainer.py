@@ -30,4 +30,20 @@ def run_experiment(baseline: int, test: bool):
     df_self = df_self[~df_self.DeidentID.isin(patients_to_exclude)]
     
     
+    def keep_first_n_rows_per_id(df, id_col='DeidentID', n=2000):
+        # Group by the ID column, then for each group take the first n rows.
+        # group_keys=False ensures that the group labels are not included in the index,
+        # thus preserving the original row indices.
+        return df.groupby(id_col, group_keys=False).head(n)
+
+    
+    if test:
+        df_basic = keep_first_n_rows_per_id(df_basic)
+        keys_in_basic = set(df_basic[['LocalDtTm', 'DeidentID']].apply(tuple, axis=1))
+        df_self = df_self[df_self[['LocalDtTm', 'DeidentID']].apply(tuple, axis=1).isin(keys_in_basic)]
+    
+    
+    
+if __name__ == "__main__":
+    run_experiment(1, True)
         
