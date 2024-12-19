@@ -47,10 +47,11 @@ def get_self_sup_df(df):
     """
     Adds four columns to the df for each row that are the average of the next 24 measurements of mealsize, insulin, exercise, and carbs.
     """
-    df["future_meal"] = 0
-    df["future_insulin"] = 0
-    df["future_exercise"] = 0
-    df["future_carbs"] = 0
+    df = df.copy()
+    df["future_meal"] = 0.0
+    df["future_insulin"] = 0.0
+    df["future_exercise"] = 0.0
+    df["future_carbs"] = 0.0
     
     # Sort the dataframe by time
     df = df.sort_values("LocalDtTm")
@@ -220,8 +221,12 @@ def preprocess_data():
     # Generate basic and self-supervised dataframes
     basic_dfs = []
     self_sup_dfs = []
+    
+    patients_to_exclude = [1, 9, 10, 12, 16, 18, 19, 21, 22, 23, 24, 25, 26, 27, 29, 30]
+    patients = range(1, 31)
+    patients = [p for p in patients if p not in patients_to_exclude]
 
-    for i in range(1, 31):
+    for i in patients:
         # Filter by patient
         df_cgm_p = df_MonitorCGM[df_MonitorCGM["DeidentID"] == i].sort_values("LocalDtTm")
         df_meal_p = df_MonitorMeal[df_MonitorMeal["DeidentID"] == i]
@@ -245,11 +250,10 @@ def preprocess_data():
         # Create final DF (just times and CGM so far)
         df_final = df_cgm_p[["LocalDtTm", "CGM"]].copy()
 
-        # Add CGM past 288 windows
+        # Check CGM past 288 windows
         df_final_cgm = df_final["LocalDtTm"].progress_apply(lambda x: pd.Series(get_24_hour_bins(df_cgm_agg, x, "CGM")))
         df_final_cgm.columns = [f"cgm_{j}" for j in range(1, 289)]
         df_final["non_imputed_cgm_count"] = df_final_cgm.apply(lambda row: (row != 0).sum(), axis=1)
-        df_final = pd.concat([df_final, df_final_cgm], axis=1)
 
         # Add Insulin past 288 windows
         df_final_insulin = df_final["LocalDtTm"].progress_apply(lambda x: pd.Series(get_24_hour_bins(df_insulin_agg, x, "insulin")))
@@ -279,9 +283,8 @@ def preprocess_data():
 
 
         df_final = df_final[df_final["non_imputed_cgm_count"] >= 288]
-
+        df_final = df_final.drop(columns=["non_imputed_cgm_count"])
         df_final_self = get_self_sup_df(df_final)
-
         df_final["DeidentID"] = i
         df_final_self["DeidentID"] = i
         basic_dfs.append(df_final)
