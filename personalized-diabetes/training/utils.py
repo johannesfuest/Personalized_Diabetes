@@ -12,12 +12,14 @@ def get_train_test_split_single_patient(df, TRAIN_TEST_SPLIT: float, self_sup: b
     """
     df = df.sort_values("LocalDtTm")
     # split into train and test
-    train_length = int(TRAIN_TEST_SPLIT * df.shape[0])
+    train_length = int((TRAIN_TEST_SPLIT**2) * df.shape[0])
+    val_length = int(TRAIN_TEST_SPLIT * df.shape[0])
     train = df.iloc[:train_length, :]
-    test = df.iloc[train_length:, :]
+    val = df.iloc[train_length:val_length, :]
+    test = df.iloc[val_length:, :]
     # Sanity check: train and test should add up to the original dataframe
     assert (
-        test.shape[0] + train.shape[0] == df.shape[0]
+        test.shape[0] + train.shape[0] + val.shape[0] == df.shape[0]
     ), "Train-Test shapes don not add up."
     if self_sup:
         # Drop the columns that are not needed for self-supervised learning
@@ -31,7 +33,18 @@ def get_train_test_split_single_patient(df, TRAIN_TEST_SPLIT: float, self_sup: b
                 "future_exercise",
             ]
         )
+        X_val = val.drop(
+            columns=[
+                "LocalDtTm",
+                "CGM",
+                "future_insulin",
+                "future_meal",
+                "future_carbs",
+                "future_exercise",
+            ]
+        )
         Y_train = train.drop(columns=["LocalDtTm", "CGM"])
+        Y_val = val.drop(columns=["LocalDtTm", "CGM"])
         X_test = test.drop(
             columns=[
                 "LocalDtTm",
@@ -50,14 +63,19 @@ def get_train_test_split_single_patient(df, TRAIN_TEST_SPLIT: float, self_sup: b
             Y_test = Y_test.drop(
                 columns=[f"insulin_{i}", f"mealsize_{i}", f"carbs_{i}", f"exercise_{i}"]
             )
+            Y_val = Y_val.drop(
+                columns=[f"insulin_{i}", f"mealsize_{i}", f"carbs_{i}", f"exercise_{i}"]
+            )
     else:
         # Drop the columns that are not needed for supervised learning in train set
         X_train = train.drop(columns=["LocalDtTm", "CGM"])
+        X_val = val.drop(columns=["LocalDtTm", "CGM"])
         X_test = test.drop(columns=["LocalDtTm", "CGM"])
         # Drop the columns that are not needed for supervised learning in test set
         Y_train = train[["CGM", "DeidentID"]]
+        Y_val = val[["CGM", "DeidentID"]]
         Y_test = test[["CGM", "DeidentID"]]
-    return X_train, X_test, Y_train, Y_test
+    return X_train, X_val, X_test, Y_train, Y_val, Y_test
 
 
 def get_train_test_split_across_patients(df, TRAIN_TEST_SPLIT: float, self_sup: bool):
@@ -70,17 +88,21 @@ def get_train_test_split_across_patients(df, TRAIN_TEST_SPLIT: float, self_sup: 
     """
     X_train = pd.DataFrame()
     Y_train = pd.DataFrame()
+    X_val = pd.DataFrame()
+    Y_val = pd.DataFrame()
     X_test = pd.DataFrame()
     Y_test = pd.DataFrame()
     for i in range(1, 31):
-        X_train_temp, X_test_temp, Y_train_temp, Y_test_temp = get_train_test_split_single_patient(
+        X_train_temp, X_val_temp, X_test_temp, Y_train_temp, Y_val_temp, Y_test_temp = get_train_test_split_single_patient(
             df[df["DeidentID"] == i], TRAIN_TEST_SPLIT, self_sup
         )
         X_train = pd.concat([X_train, X_train_temp])
         Y_train = pd.concat([Y_train, Y_train_temp])
+        X_val = pd.concat([X_val, X_val_temp])
+        Y_val = pd.concat([Y_val, Y_val_temp])
         X_test = pd.concat([X_test, X_test_temp])
         Y_test = pd.concat([Y_test, Y_test_temp])
-    return X_train, X_test, Y_train, Y_test
+    return X_train, X_val, X_test, Y_train, Y_val, Y_test
 
 
 def apply_data_missingness(x_train, y_train, missingness_modulo: int, offset: int = 0):

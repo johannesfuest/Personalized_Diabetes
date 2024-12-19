@@ -7,26 +7,28 @@ import numpy as np
 import optuna
 from copy import deepcopy
 import time
-from utils import get_train_test_split_across_patients, get_train_test_split_single_patient
 from model import GlucoseModel
 from gMSE import gMSE
 
-# Assuming gMSE is defined somewhere else
-# from gMSE import gMSE
 
 class CustomDataset(Dataset):
     def __init__(self, X, Y=None, self_sup=False):
         """
-        X, Y are pandas DataFrames.
-        The model expects input shape: (batch, 1, CONV_INPUT_LENGTH*4)
-        We'll assume X is already in the correct order of features 
-        or that we know how to reshape them.
-        
-        If self_sup=True, Y might not be typical CGM; 
-        it could be self-supervised targets (4-dimensional, etc.).
+        X, Y are numpy arrays or pandas DataFrames/Series.
+        The model expects input shape: (batch, 1, input_length)
+        We'll assume X is already in the correct shape for this purpose.
         """
-        self.X = X.values
-        self.Y = None if Y is None else Y.values
+        if isinstance(X, pd.DataFrame) or isinstance(X, pd.Series):
+            self.X = X.values
+        else:
+            self.X = X
+        if Y is not None:
+            if isinstance(Y, pd.DataFrame) or isinstance(Y, pd.Series):
+                self.Y = Y.values
+            else:
+                self.Y = Y
+        else:
+            self.Y = None
         self.self_sup = self_sup
 
     def __len__(self):
@@ -35,9 +37,6 @@ class CustomDataset(Dataset):
     def __getitem__(self, idx):
         x = self.X[idx]
         # Reshape to (1, length_of_signals)
-        # For example if X has 4 segments concatenated, 
-        # and each segment is CONV_INPUT_LENGTH long,
-        # length_of_signals = 4*CONV_INPUT_LENGTH
         x = x.reshape(1, -1).astype(np.float32)
         if self.Y is not None:
             y = self.Y[idx].astype(np.float32)
@@ -47,8 +46,12 @@ class CustomDataset(Dataset):
 
 
 def create_dataloaders(X_train, Y_train, X_val, Y_val, batch_size, self_sup=False):
-    train_dataset = CustomDataset(X_train, Y_train, self_sup=self_sup)
-    val_dataset = CustomDataset(X_val, Y_val, self_sup=self_sup)
+    X_train_copy = X_train.drop(columns=["DeidentID"])
+    X_val_copy = X_val.drop(columns=["DeidentID"])
+    Y_train_copy = Y_train.drop(columns=["DeidentID"])
+    Y_val_copy = Y_val.drop(columns=["DeidentID"])
+    train_dataset = CustomDataset(X_train_copy, Y_train_copy, self_sup=self_sup)
+    val_dataset = CustomDataset(X_val_copy, Y_val_copy, self_sup=self_sup)
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
@@ -72,6 +75,7 @@ def train_phase(model,
     """
     best_val_loss = float('inf')
     patience_counter = 0
+    best_model_state = deepcopy(model.state_dict())  # To handle the case of zero epochs
 
     for epoch in range(max_epochs):
         model.train()
@@ -88,7 +92,10 @@ def train_phase(model,
 
             optimizer.zero_grad()
             outputs = model(x_batch)
-            loss = criterion(y_batch, outputs) if y_batch is not None else criterion(outputs)  # depending on how gMSE is defined
+            if y_batch is not None:
+                loss = criterion(y_batch, outputs) 
+            else:
+                loss = criterion(outputs)  
             loss.backward()
             optimizer.step()
             
@@ -108,7 +115,7 @@ def train_phase(model,
                     if patience_counter >= early_stop_patience:
                         # Early stop
                         model.load_state_dict(best_model_state)
-                        scheduler.step(val_loss)  # allow scheduler step on stop
+                        scheduler.step(val_loss)
                         return best_val_loss
                 # Step the scheduler after validation
                 scheduler.step(val_loss)
@@ -143,39 +150,31 @@ def evaluate(model, val_loader, criterion, device):
             else:
                 x_batch = batch[0].to(device)
                 y_batch = None
+
             outputs = model(x_batch)
-            loss = criterion(y_batch, outputs) if y_batch is not None else criterion(outputs)
+            if y_batch is not None:
+                loss = criterion(y_batch, outputs)
+            else:
+                loss = criterion(outputs)
             total_loss += loss.item()
             steps += 1
     return total_loss / steps if steps > 0 else float('inf')
 
 
-def objective(trial, 
-              df,
-              df_ss=None,
-              multi_patient=True,
-              self_sup=False,
-              individualized_finetuning=False,
-              patients=[1,2,3],
-              TRAIN_TEST_SPLIT=0.8,
-              eval_frequency=50):
-    """
-    An Optuna objective function that:
-    - Optionally performs self-supervised pre-training
-    - Then supervised training
-    - Optionally does individualized fine-tuning at the end if multi-patient
-    
-    Hyperparameters to tune:
-    - learning rates for each phase
-    - dropout rates
-    - number of epochs for each phase
-    - early stopping patience
-    - batch size
-    """
+def objective(trial,
+              X_train, Y_train,
+              X_val, Y_val,
+              X_test, Y_test,
+              X_train_self, Y_train_self,
+              X_val_self, Y_val_self,
+              X_test_self, Y_test_self,
+              self_sup,
+              individualized_finetuning,
+              eval_frequency):
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Hyperparameters from Optuna
-    # Note: You can adjust the search ranges as desired.
     lr_self_sup = trial.suggest_float("lr_self_sup", 1e-4, 1e-2, log=True)
     lr_supervised = trial.suggest_float("lr_supervised", 1e-4, 1e-2, log=True)
     lr_finetune = trial.suggest_float("lr_finetune", 1e-5, 1e-3, log=True)
@@ -202,59 +201,30 @@ def objective(trial,
         "dropout_rate": dropout_rate
     }
 
-    # Filter the dataframe by the selected patients
-    df_filtered = df[df['DeidentID'].isin(patients)]
-    if self_sup and df_ss is not None:
-        df_ss_filtered = df_ss[df_ss['DeidentID'].isin(patients)]
-    else:
-        df_ss_filtered = None
+    # Assuming input length matches what was done previously
+    input_length = X_train.shape[1]  # should be (batch, input_length) after reshape
 
-    # Decide how to split
-    if multi_patient:
-        X_train, X_val, Y_train, Y_val = get_train_test_split_across_patients(df_filtered, TRAIN_TEST_SPLIT, self_sup=False)
-        if self_sup and df_ss_filtered is not None:
-            X_train_ss, X_val_ss, Y_train_ss, Y_val_ss = get_train_test_split_across_patients(df_ss_filtered, TRAIN_TEST_SPLIT, self_sup=True)
-        else:
-            X_train_ss = X_val_ss = Y_train_ss = Y_val_ss = None
-    else:
-        # If single patient, we expect patients to have length 1
-        patient_id = patients[0]
-        df_single = df_filtered[df_filtered['DeidentID'] == patient_id]
-        X_train, X_val, Y_train, Y_val = get_train_test_split_single_patient(df_single, TRAIN_TEST_SPLIT, self_sup=False)
-        if self_sup and df_ss_filtered is not None:
-            df_ss_single = df_ss_filtered[df_ss_filtered['DeidentID'] == patient_id]
-            X_train_ss, X_val_ss, Y_train_ss, Y_val_ss = get_train_test_split_single_patient(df_ss_single, TRAIN_TEST_SPLIT, self_sup=True)
-        else:
-            X_train_ss = X_val_ss = Y_train_ss = Y_val_ss = None
-
-   
-    input_length = 288 * 4
-
-    # Initialize the model
     model = GlucoseModel(CONV_INPUT_LENGTH=input_length, self_sup=self_sup, fixed_hyperparameters=fixed_hyperparameters).to(device)
     criterion = gMSE
-
+    patients = X_train["DeidentID"].unique().tolist()
     # ============= Self-Supervised Phase (Optional) =============
-    if self_sup and X_train_ss is not None:
-        # Create dataloaders for self-supervised
-        train_loader_ss, val_loader_ss = create_dataloaders(X_train_ss, Y_train_ss, X_val_ss, Y_val_ss, batch_size, self_sup=True)
-
+    if self_sup and X_train_self is not None and Y_train_self is not None and X_val_self is not None and Y_val_self is not None:
+        # Self-supervised training
+        train_loader_ss, val_loader_ss = create_dataloaders(X_train_self, Y_train_self, X_val_self, Y_val_self, batch_size, self_sup=True)
         optimizer_ss = optim.Adam(model.parameters(), lr=lr_self_sup)
         scheduler_ss = optim.lr_scheduler.ReduceLROnPlateau(optimizer_ss, 'min', patience=2, factor=0.5)
 
-        # Train self-supervised
         best_val_loss_ss = train_phase(model, criterion, optimizer_ss, scheduler_ss, train_loader_ss, val_loader_ss,
                                        device, early_stop_patience, eval_frequency, epochs_self_sup)
-
-        # After self-supervised, change last layer to output a single value
-        # and switch self_sup off in model
+        # After self-supervised training, switch to supervised mode
         model.self_sup = False
         model.fc5 = nn.Linear(64, 1).to(device)
+    else:
+        # If not self_sup, we are already in supervised mode
+        pass
 
     # ============= Supervised Phase =============
-    # Create supervised dataloaders
     train_loader, val_loader = create_dataloaders(X_train, Y_train, X_val, Y_val, batch_size, self_sup=False)
-
     optimizer_sup = optim.Adam(model.parameters(), lr=lr_supervised)
     scheduler_sup = optim.lr_scheduler.ReduceLROnPlateau(optimizer_sup, 'min', patience=3, factor=0.5)
 
@@ -262,67 +232,58 @@ def objective(trial,
                                     device, early_stop_patience, eval_frequency, epochs_supervised)
 
     # ============= Individualized Fine-Tuning (Optional) =============
-    # If multi-patient and individualized_finetuning, we fine-tune a new model for each patient individually
-    # and measure performance.
-    # For simplicity, we’ll just do a quick pass and return average fine-tune performance.
-    if multi_patient and individualized_finetuning:
-        fine_tune_losses = []
-        base_model_state = deepcopy(model.state_dict())
-
-        for pid in patients:
-            # Filter data for just this patient
-            df_p = df[df['DeidentID'] == pid]
-            X_train_p, X_val_p, Y_train_p, Y_val_p = get_train_test_split_single_patient(df_p, TRAIN_TEST_SPLIT, self_sup=False)
-            train_loader_p, val_loader_p = create_dataloaders(X_train_p, Y_train_p, X_val_p, Y_val_p, batch_size, self_sup=False)
-
-            # Reset model to base supervised trained weights
-            model.load_state_dict(base_model_state)
-
-            # Lower learning rate for fine-tuning
-            optimizer_ft = optim.Adam(model.parameters(), lr=lr_finetune)
-            scheduler_ft = optim.lr_scheduler.ReduceLROnPlateau(optimizer_ft, 'min', patience=2, factor=0.5)
-
-            # Short fine-tune phase
-            val_loss_ft = train_phase(model, criterion, optimizer_ft, scheduler_ft, train_loader_p, val_loader_p,
-                                      device, early_stop_patience, eval_frequency, epochs_finetune)
-            fine_tune_losses.append(val_loss_ft)
-
-        # Return average fine-tune loss as metric
-        final_metric = np.mean(fine_tune_losses)
+    if individualized_finetuning:
+        final_metrics = []
+        for patient in patients:
+            model_clone = deepcopy(model)
+            X_train_patient = X_train[X_train["DeidentID"] == patient]
+            Y_train_patient = Y_train[X_train["DeidentID"] == patient]
+            X_val_patient = X_val[X_val["DeidentID"] == patient]
+            Y_val_patient = Y_val[X_val["DeidentID"] == patient]
+            
+            train_loader_patient, val_loader_patient = create_dataloaders(X_train_patient, Y_train_patient, X_val_patient, Y_val_patient, batch_size, self_sup=False)
+            optimizer_finetune = optim.Adam(model_clone.parameters(), lr=lr_finetune)
+            scheduler_finetune = optim.lr_scheduler.ReduceLROnPlateau(optimizer_finetune, 'min', patience=2, factor=0.5)
+            
+            best_val_loss_finetune = train_phase(model_clone, criterion, optimizer_finetune, scheduler_finetune, train_loader_patient, val_loader_patient,
+                                                device, early_stop_patience, eval_frequency, epochs_finetune)
+            
+            final_metrics.append(best_val_loss_finetune)
+        final_metric = np.mean(final_metrics)
     else:
-        # If no fine-tuning, return the supervised val loss
         final_metric = best_val_loss_sup
-
     return final_metric
 
 
 def run_optuna_study(
-    df: pd.DataFrame,
-    df_ss: pd.DataFrame,
-    multi_patient: bool,
+    X_train, Y_train,
+    X_val, Y_val,
+    X_test, Y_test,
+    X_train_self, Y_train_self,
+    X_val_self, Y_val_self,
+    X_test_self, Y_test_self,
     self_sup: bool,
     individualized_finetuning: bool,
-    patients: list,
-    n_trials: int,
-    TRAIN_TEST_SPLIT: float,
-    eval_frequency: int,
+    n_trials: int = 10,
+    eval_frequency: int = 50,
     direction: str = "minimize",
 ):
     """
-    Function to run an Optuna study.
+    Runs an Optuna study using the provided train/val/test sets.
     """
     study = optuna.create_study(direction=direction)
     study.optimize(
         lambda trial: objective(
             trial,
-            df,
-            df_ss,
-            multi_patient,
+            X_train, Y_train,
+            X_val, Y_val,
+            X_test, Y_test,
+            X_train_self, Y_train_self,
+            X_val_self, Y_val_self,
+            X_test_self, Y_test_self,
             self_sup,
             individualized_finetuning,
-            patients,
-            TRAIN_TEST_SPLIT,
-            eval_frequency,
+            eval_frequency
         ),
         n_trials=n_trials,
     )
