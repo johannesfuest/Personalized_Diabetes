@@ -188,22 +188,22 @@ def objective(trial,
 
     # Fixed hyperparameters for convolutional layers
     fixed_hyperparameters = {
-        "filter_1": 3,
+        "filter_1": 4,
         "kernel_1": 6,
         "stride_1": 2,
-        "pool_size_1": 3,
+        "pool_size_1": 2,
         "pool_stride_1": 2,
         "filter_2": 7,
-        "kernel_2": 6,
+        "kernel_2": 5,
         "stride_2": 2,
         "pool_size_2": 6,
-        "pool_stride_2": 4,
+        "pool_stride_2": 5,
         "dropout_rate": dropout_rate
     }
 
     # Assuming input length matches what was done previously
-    input_length = X_train.shape[1] - 1  # should be (batch, input_length) after reshape, -1 is due to patient id
-
+    input_length = int((X_train.shape[1] - 1) / 4) # should be (batch, input_length) after reshape, -1 is due to patient id
+    assert input_length == 288, "Input length should be 288"
     model = GlucoseModel(CONV_INPUT_LENGTH=input_length, self_sup=self_sup, fixed_hyperparameters=fixed_hyperparameters).to(device)
     criterion = gMSE
     patients = X_train["DeidentID"].unique().tolist()
@@ -264,7 +264,7 @@ def run_optuna_study(
     X_test_self, Y_test_self,
     self_sup: bool,
     individualized_finetuning: bool,
-    n_trials: int = 10,
+    n_trials: int = 500,
     eval_frequency: int = 50,
     direction: str = "minimize",
 ):
@@ -287,5 +287,4 @@ def run_optuna_study(
         ),
         n_trials=n_trials,
     )
-
     return study

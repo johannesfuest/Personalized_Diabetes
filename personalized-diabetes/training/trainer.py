@@ -82,4 +82,3 @@ def run_experiment(baseline: int, test: bool):
             print(f"Patient {patient} best params: {best_params}")
 if __name__ == "__main__":
     run_experiment(1, True)
-        

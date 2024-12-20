@@ -84,7 +84,7 @@ class GlucoseModel(nn.Module):
 
         dropout_rate = fixed_hyperparameters["dropout_rate"]
 
-        self.fc1 = nn.Linear(CONV_INPUT_LENGTH, 512)
+        self.fc1 = nn.Linear(168, 512)
         self.drop_fc1 = nn.Dropout(p=dropout_rate)
         self.fc2 = nn.Linear(512, 256)
         self.drop_fc2 = nn.Dropout(p=dropout_rate)
@@ -108,7 +108,7 @@ class GlucoseModel(nn.Module):
         meal_input = x[:, :, seg_len:2*seg_len]
         smbg_input = x[:, :, 2*seg_len:3*seg_len]
         exercise_input = x[:, :, 3*seg_len:4*seg_len]
-
+        
         # Pass through the four ConvLayers
         diabetes_conv_out = self.diabetes_conv(diabetes_input)
         meal_conv_out = self.meal_conv(meal_input)
