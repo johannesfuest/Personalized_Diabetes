@@ -92,9 +92,14 @@ def run_experiment(baseline: int, test: bool):
         
     else:
         for patient in patients:
-            X_train, X_val, X_test, Y_train, Y_val, Y_test = get_train_test_split_single_patient(df_basic, 0.8, patient, False)
+            df_patient = df_basic[df_basic["DeidentID"] == patient].copy()
+            if df_patient.shape[0] == 0:
+                print(f"Skipping patient {patient} as they have no data")
+                continue
+            df_self_patient = df_self[df_self["DeidentID"] == patient].copy()
+            X_train, X_val, X_test, Y_train, Y_val, Y_test = get_train_test_split_single_patient(df_patient, 0.8, False)
             if self_sup:
-                X_train_self, X_val_self, X_test_self, Y_train_self, Y_val_self, Y_test_self = get_train_test_split_single_patient(df_self, 0.8, patient, self_sup)
+                X_train_self, X_val_self, X_test_self, Y_train_self, Y_val_self, Y_test_self = get_train_test_split_single_patient(df_self_patient, 0.8, self_sup)
             else:
                 X_train_self = None
                 Y_train_self = None
@@ -124,4 +129,4 @@ def run_experiment(baseline: int, test: bool):
             )
     
 if __name__ == "__main__":
-    run_experiment(2, True)
+    run_experiment(4, True)
