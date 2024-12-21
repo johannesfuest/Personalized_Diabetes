@@ -92,10 +92,8 @@ class GlucoseModel(nn.Module):
         self.drop_fc3 = nn.Dropout(p=dropout_rate)
         self.fc4 = nn.Linear(128, 64)
 
-        if self_sup:
-            self.fc5 = nn.Linear(64, 4)
-        else:
-            self.fc5 = nn.Linear(64, 1)
+        self.output_layer = nn.Linear(64, 4)
+        self.fc5 = nn.Linear(64, 1)
 
     def forward(self, x):
         # x expected shape: (batch, 1, CONV_INPUT_LENGTH*4)

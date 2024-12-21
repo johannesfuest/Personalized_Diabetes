@@ -1,5 +1,5 @@
 import pandas as pd
-from training_pipeline import run_optuna_study
+from training_pipeline import run_optuna_study, train_full_with_params
 from utils import get_train_test_split_across_patients, get_train_test_split_single_patient
 
 DATASET = "basic_0.csv"
@@ -64,6 +64,31 @@ def run_experiment(baseline: int, test: bool):
             Y_test_self = None
         study = run_optuna_study(X_train, Y_train, X_val, Y_val, X_test, Y_test, X_train_self, Y_train_self, X_val_self, Y_val_self, X_test_self, Y_test_self, self_sup, finetune)
         best_params = study.best_params
+        print("Best hyperparameters found by Optuna:", best_params)
+
+        # ---- 2) Retrain the model on (train + val) with best hyperparams ----
+        # Combine train and val sets
+        X_train_val = pd.concat([X_train, X_val])
+        Y_train_val = pd.concat([Y_train, Y_val])
+
+        # We'll write a helper function (in training_pipeline.py) called
+        # `train_full_with_params` that trains a fresh model from scratch
+        # using the best hyperparams, *optionally* does self-supervised pre-training,
+        # then returns final model along with the test loss + bootstrap intervals.
+        # 
+        # We also compute final metrics for each patient in the test set.
+
+        print("\nRetraining model with best hyperparams on [train + val] and evaluating on test...\n")
+        train_full_with_params(
+            best_params, 
+            X_train_val, Y_train_val,
+            X_test, Y_test,
+            X_train_self, Y_train_self,
+            X_val_self,  Y_val_self,
+            X_test_self, Y_test_self,
+            self_sup, 
+            finetune
+        )
         
     else:
         for patient in patients:
@@ -80,5 +105,23 @@ def run_experiment(baseline: int, test: bool):
             study = run_optuna_study(X_train, Y_train, X_val, Y_val, X_test, Y_test, X_train_self, Y_train_self, X_val_self, Y_val_self, X_test_self, Y_test_self, self_sup, finetune)
             best_params = study.best_params
             print(f"Patient {patient} best params: {best_params}")
+
+            # Retrain using (train + val)
+            X_train_val = pd.concat([X_train, X_val])
+            Y_train_val = pd.concat([Y_train, Y_val])
+
+            print(f"\nRetraining model for Patient {patient} with best hyperparams...\n")
+            train_full_with_params(
+                best_params,
+                X_train_val, Y_train_val,
+                X_test, Y_test,
+                X_train_self, Y_train_self,
+                X_val_self,  Y_val_self,
+                X_test_self, Y_test_self,
+                self_sup,
+                finetune,
+                patient_id=patient
+            )
+    
 if __name__ == "__main__":
-    run_experiment(1, True)
+    run_experiment(2, True)

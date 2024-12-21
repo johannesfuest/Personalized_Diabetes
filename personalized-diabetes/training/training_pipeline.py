@@ -175,15 +175,15 @@ def objective(trial,
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Hyperparameters from Optuna
-    lr_self_sup = trial.suggest_float("lr_self_sup", 1e-4, 1e-2, log=True)
-    lr_supervised = trial.suggest_float("lr_supervised", 1e-4, 1e-2, log=True)
-    lr_finetune = trial.suggest_float("lr_finetune", 1e-5, 1e-3, log=True)
+    lr_self_sup = trial.suggest_float("lr_self_sup", 1e-5, 1e-2, log=True)
+    lr_supervised = trial.suggest_float("lr_supervised", 1e-5, 1e-2, log=True)
+    lr_finetune = trial.suggest_float("lr_finetune", 1e-6, 1e-3, log=True)
 
     dropout_rate = trial.suggest_float("dropout_rate", 0.0, 0.5)
-    epochs_self_sup = trial.suggest_int("epochs_self_sup", 1, 10)
-    epochs_supervised = trial.suggest_int("epochs_supervised", 1, 10)
-    epochs_finetune = trial.suggest_int("epochs_finetune", 1, 10)
-    early_stop_patience = trial.suggest_int("early_stop_patience", 1, 5)
+    epochs_self_sup = trial.suggest_int("epochs_self_sup", 1, 20)
+    epochs_supervised = trial.suggest_int("epochs_supervised", 1, 20)
+    epochs_finetune = trial.suggest_int("epochs_finetune", 1, 20)
+    early_stop_patience = trial.suggest_int("early_stop_patience", 0, 5)
     batch_size = 32
 
     # Fixed hyperparameters for convolutional layers
@@ -264,8 +264,8 @@ def run_optuna_study(
     X_test_self, Y_test_self,
     self_sup: bool,
     individualized_finetuning: bool,
-    n_trials: int = 500,
-    eval_frequency: int = 50,
+    n_trials: int = 10,
+    eval_frequency: int = 5,
     direction: str = "minimize",
 ):
     """
@@ -288,3 +288,236 @@ def run_optuna_study(
         n_trials=n_trials,
     )
     return study
+
+
+def bootstrap_loss(y_true, y_pred, loss_fn, n_boot=1000, confidence=0.95):
+    """
+    Bootstraps the given predictions to compute a confidence interval
+    for the loss. Returns (mean_loss, lower_bound, upper_bound).
+    """
+    rng = np.random.default_rng(seed=42)  # for reproducibility
+    indices = np.arange(len(y_true))
+    
+    boot_losses = []
+    for _ in range(n_boot):
+        sample_idx = rng.choice(indices, size=len(indices), replace=True)
+        y_true_sample = y_true[sample_idx]
+        y_pred_sample = y_pred[sample_idx]
+        loss_val = loss_fn(torch.tensor(y_true_sample, dtype=torch.float32),
+                           torch.tensor(y_pred_sample, dtype=torch.float32)).item()
+        boot_losses.append(loss_val)
+    
+    boot_losses = np.array(boot_losses)
+    lower = np.percentile(boot_losses, ((1.0 - confidence) / 2) * 100)
+    upper = np.percentile(boot_losses, (1.0 - (1.0 - confidence) / 2) * 100)
+    return float(np.mean(boot_losses)), float(lower), float(upper)
+
+def train_full_with_params(
+    best_params,
+    X_train_val, Y_train_val,
+    X_test, Y_test,
+    X_train_self, Y_train_self,
+    X_val_self,  Y_val_self,
+    X_test_self, Y_test_self,
+    self_sup,
+    individualized_finetuning,
+    patient_id=None
+):
+    """
+    Given the best hyperparameters, trains a fresh model from scratch
+    on (train + val) data. If self_sup is True, does a self-supervised
+    phase first. Then evaluates on the test set. Finally, we bootstrap 
+    the predictions to get a 95% confidence interval for the loss.
+    """
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Extract hyperparams
+    lr_self_sup     = best_params["lr_self_sup"]
+    lr_supervised   = best_params["lr_supervised"]
+    lr_finetune     = best_params["lr_finetune"]
+    dropout_rate    = best_params["dropout_rate"]
+    epochs_self_sup = best_params["epochs_self_sup"]
+    epochs_supervised = best_params["epochs_supervised"]
+    epochs_finetune   = best_params["epochs_finetune"]
+    early_stop_patience = best_params["early_stop_patience"]
+
+    # Hardcode batch size and eval_frequency for demonstration.
+    # You can also incorporate them as best_params if you want.
+    batch_size      = 32
+    eval_frequency  = 50
+
+    # Fixed hyperparameters for the CNN model
+    fixed_hyperparameters = {
+        "filter_1": 4,
+        "kernel_1": 6,
+        "stride_1": 2,
+        "pool_size_1": 2,
+        "pool_stride_1": 2,
+        "filter_2": 7,
+        "kernel_2": 5,
+        "stride_2": 2,
+        "pool_size_2": 6,
+        "pool_stride_2": 5,
+        "dropout_rate": dropout_rate
+    }
+
+    # The code in "objective" used an assertion that the input length is 288
+    #   after dropping the "DeidentID" column, so let's do the same check here.
+    input_length = int((X_train_val.shape[1] - 1) / 4)  # minus 1 for DeidentID
+    assert input_length == 288, "Input length should be 288"
+
+    # ===== Create the Model =====
+    model = GlucoseModel(CONV_INPUT_LENGTH=input_length, 
+                         self_sup=self_sup, 
+                         fixed_hyperparameters=fixed_hyperparameters).to(device)
+    criterion = gMSE
+
+    # ====== 1) (Optional) Self-Supervised Phase ======
+    if self_sup and (X_train_self is not None) and (Y_train_self is not None) \
+                 and (X_val_self is not None) and (Y_val_self is not None):
+        
+        train_loader_ss, val_loader_ss = create_dataloaders(
+            X_train_self, Y_train_self,
+            X_val_self,   Y_val_self,
+            batch_size,
+            self_sup=True
+        )
+        
+        optimizer_ss = optim.Adam(model.parameters(), lr=lr_self_sup)
+        scheduler_ss = optim.lr_scheduler.ReduceLROnPlateau(optimizer_ss, 'min', patience=2, factor=0.5)
+
+        train_phase(
+            model, 
+            criterion, 
+            optimizer_ss, 
+            scheduler_ss, 
+            train_loader_ss, 
+            val_loader_ss, 
+            device, 
+            early_stop_patience, 
+            eval_frequency, 
+            max_epochs=epochs_self_sup
+        )
+
+        # Switch to supervised mode
+        model.self_sup = False
+        model.fc5 = nn.Linear(64, 1).to(device)
+
+    # ====== 2) Supervised Phase on (train+val) ======
+    train_loader, _ = create_dataloaders(
+        X_train_val, Y_train_val,  # (val loader not strictly needed for final training,
+        X_train_val, Y_train_val,  #  but we can pass the same data if we still want
+                                   #  to do early-stopping or scheduling)
+        batch_size,
+        self_sup=False
+    )
+    optimizer_sup = optim.Adam(model.parameters(), lr=lr_supervised)
+    scheduler_sup = optim.lr_scheduler.ReduceLROnPlateau(optimizer_sup, 'min', patience=3, factor=0.5)
+
+    train_phase(
+        model, 
+        criterion, 
+        optimizer_sup, 
+        scheduler_sup, 
+        train_loader, 
+        train_loader,  # if you still want to do early stop with train_loader as val
+        device, 
+        early_stop_patience, 
+        eval_frequency, 
+        max_epochs=epochs_supervised
+    )
+
+    # ====== 3) (Optional) Individualized Fine-Tuning ======
+    if individualized_finetuning:
+        # If multipatient = True + individualized_finetuning, we do
+        # per-patient fine-tuning. We'll do it across all patients in the test set.
+        # Or if single patient, it's just that one patient.
+        patients_in_data = X_train_val["DeidentID"].unique()
+        # We'll store a dictionary of final losses if we want
+        final_losses = {}
+        
+        for pid in patients_in_data:
+            # Clone the model so we don't overwrite the global version
+            model_clone = deepcopy(model)
+            # Pull data for this single patient from train+val
+            X_train_val_pid = X_train_val[X_train_val["DeidentID"] == pid]
+            Y_train_val_pid = Y_train_val[X_train_val["DeidentID"] == pid]
+
+            train_loader_pid, _ = create_dataloaders(
+                X_train_val_pid, Y_train_val_pid,
+                X_train_val_pid, Y_train_val_pid,
+                batch_size,
+                self_sup=False
+            )
+
+            optimizer_fine = optim.Adam(model_clone.parameters(), lr=lr_finetune)
+            scheduler_fine = optim.lr_scheduler.ReduceLROnPlateau(optimizer_fine, 'min', patience=2, factor=0.5)
+            
+            train_phase(
+                model_clone,
+                criterion,
+                optimizer_fine,
+                scheduler_fine,
+                train_loader_pid,
+                train_loader_pid,
+                device,
+                early_stop_patience,
+                eval_frequency,
+                max_epochs=epochs_finetune
+            )
+            # Evaluate on the test set for just that patient
+            X_test_pid = X_test[X_test["DeidentID"] == pid]
+            Y_test_pid = Y_test[X_test["DeidentID"] == pid]
+
+            # Make predictions
+            if len(X_test_pid) == 0:
+                continue
+            model_clone.eval()
+            with torch.no_grad():
+                X_test_pid_copy = X_test_pid.drop(columns=["DeidentID"]).values
+                X_test_pid_tensor = torch.tensor(X_test_pid_copy, dtype=torch.float32).reshape(-1,1, X_test_pid_copy.shape[1]).to(device)
+                preds_pid = model_clone(X_test_pid_tensor).cpu().numpy().flatten()
+            
+            # Compute the test loss
+            test_loss_pid = gMSE(
+                torch.tensor(Y_test_pid.drop(columns=["DeidentID"]).values, dtype=torch.float32),
+                torch.tensor(preds_pid, dtype=torch.float32)
+            ).item()
+            final_losses[pid] = test_loss_pid
+
+        print("Per-Patient Fine-Tuning Losses:", final_losses)
+        # If you want a single summary metric, you could do:
+        avg_loss = np.mean(list(final_losses.values()))
+        print(f"Average Test Loss across all patients (fine-tuned): {avg_loss:.4f}")
+
+        # Return or print final losses
+        return
+
+    # ====== 4) Evaluate on Test Set + Bootstrap Confidence Interval ======
+    # Evaluate using the final model (non-fine-tuned or globally fine-tuned).
+    model.eval()
+    with torch.no_grad():
+        # Drop DeidentID from test for the actual model input
+        X_test_copy = X_test.drop(columns=["DeidentID"]).values
+        # Shape => (batch, 1, input_length)
+        X_test_tensor = torch.tensor(X_test_copy, dtype=torch.float32).reshape(-1,1,X_test_copy.shape[1]).to(device)
+        preds = model(X_test_tensor).cpu().numpy().flatten()
+    
+    # Actual ground truth from Y_test
+    # The glucose column might be shaped (N,) or (N, 1). Just flatten as needed.
+    Y_test_copy = Y_test.drop(columns=["DeidentID"]).values.flatten()
+
+    # Compute the test loss (gMSE)
+    test_loss = gMSE(
+        torch.tensor(Y_test_copy, dtype=torch.float32),
+        torch.tensor(preds, dtype=torch.float32)
+    ).item()
+
+    # ----- BOOTSTRAP -----
+    mean_boot, ci_lower, ci_upper = bootstrap_loss(Y_test_copy, preds, gMSE, n_boot=1000, confidence=0.95)
+
+    # Identify the patient in logs if single-patient approach
+    pid_str = f"[Patient {patient_id}] " if patient_id else ""
+    print(f"{pid_str}Test loss: {test_loss:.4f}")
+    print(f"{pid_str}Bootstrap 95% CI: [{ci_lower:.4f}, {ci_upper:.4f}] (Mean bootstrapped loss: {mean_boot:.4f})")
