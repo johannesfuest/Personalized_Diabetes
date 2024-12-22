@@ -136,4 +136,4 @@ def run_experiment(baseline: int, test: bool):
             )
     
 if __name__ == "__main__":
-    run_experiment(4, True)
+    run_experiment(1, True)

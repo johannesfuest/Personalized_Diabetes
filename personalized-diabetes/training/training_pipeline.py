@@ -345,33 +345,35 @@ def train_full_with_params(
     self_sup,
     individualized_finetuning,
     patient_id=None,
-    
+    baseline=1,  # So we know which folder to save in
 ):
     """
     Given the best hyperparameters, trains a fresh model from scratch
     on (train + val) data. If self_sup is True, does a self-supervised
     phase first. Then evaluates on the test set. Finally, we bootstrap 
     the predictions to get a 95% confidence interval for the loss.
+
+    If individualized_finetuning is True, we do a per-patient fine-tuning step,
+    and also evaluate + bootstrap on that patient's test set, saving
+    results to a text file in results/<experiment_folder>.
     """
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Extract hyperparams
-    lr_self_sup     = best_params["lr_self_sup"]
-    lr_supervised   = best_params["lr_supervised"]
-    lr_finetune     = best_params["lr_finetune"]
-    dropout_rate    = best_params["dropout_rate"]
-    epochs_self_sup = best_params["epochs_self_sup"]
+    # ====== Extract hyperparams from the best trial ======
+    lr_self_sup       = best_params["lr_self_sup"]
+    lr_supervised     = best_params["lr_supervised"]
+    lr_finetune       = best_params["lr_finetune"]
+    dropout_rate      = best_params["dropout_rate"]
+    epochs_self_sup   = best_params["epochs_self_sup"]
     epochs_supervised = best_params["epochs_supervised"]
     epochs_finetune   = best_params["epochs_finetune"]
     early_stop_patience = best_params["early_stop_patience"]
 
-    # Hardcode batch size and eval_frequency for demonstration.
-    # You can also incorporate them as best_params if you want.
-    batch_size      = 32
-    eval_frequency  = 50
+    # Hardcode batch size and eval_frequency
+    batch_size     = 32
+    eval_frequency = 50
 
-    # Fixed hyperparameters for the CNN model
     fixed_hyperparameters = {
         "filter_1": 4,
         "kernel_1": 6,
@@ -387,22 +389,27 @@ def train_full_with_params(
     }
 
     # The code in "objective" used an assertion that the input length is 288
-    #   after dropping the "DeidentID" column, so let's do the same check here.
     input_length = int((X_train_val.shape[1] - 1) / 4)  # minus 1 for DeidentID
     assert input_length == 288, "Input length should be 288"
 
-    # ===== Create the Model =====
-    model = GlucoseModel(CONV_INPUT_LENGTH=input_length, 
-                         self_sup=self_sup, 
-                         fixed_hyperparameters=fixed_hyperparameters).to(device)
+    # ====== Create the Model ======
+    model = GlucoseModel(
+        CONV_INPUT_LENGTH=input_length, 
+        self_sup=self_sup, 
+        fixed_hyperparameters=fixed_hyperparameters
+    ).to(device)
     criterion = gMSE
+
+    # We'll store the training curves for each phase
     phase_history = {
-        "self_supervised": None,
-        "supervised": None,
-        "finetuning": {}
+        "self_supervised": None,  # (train_loss_list, val_loss_list)
+        "supervised": None,       # (train_loss_list, val_loss_list)
+        "finetuning": {}          # { patient_id: (train_loss_list, val_loss_list) }
     }
 
-    # ====== 1) (Optional) Self-Supervised Phase ======
+    # -------------------------------------------------------------------------
+    # 1) Self-Supervised Phase (Optional)
+    # -------------------------------------------------------------------------
     if self_sup and (X_train_self is not None) and (Y_train_self is not None) \
                  and (X_val_self is not None) and (Y_val_self is not None):
         
@@ -414,7 +421,9 @@ def train_full_with_params(
         )
         
         optimizer_ss = optim.Adam(model.parameters(), lr=lr_self_sup)
-        scheduler_ss = optim.lr_scheduler.ReduceLROnPlateau(optimizer_ss, 'min', patience=2, factor=0.5)
+        scheduler_ss = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer_ss, 'min', patience=2, factor=0.5
+        )
 
         train_loss_ss, val_loss_ss = train_phase(
             model, 
@@ -435,16 +444,19 @@ def train_full_with_params(
         model.self_sup = False
         model.fc5 = nn.Linear(64, 1).to(device)
 
-    # ====== 2) Supervised Phase on (train+val) ======
+    # -------------------------------------------------------------------------
+    # 2) Supervised Phase on (train+val)
+    # -------------------------------------------------------------------------
     train_loader, _ = create_dataloaders(
-        X_train_val, Y_train_val,  # (val loader not strictly needed for final training,
-        X_train_val, Y_train_val,  #  but we can pass the same data if we still want
-                                   #  to do early-stopping or scheduling)
+        X_train_val, Y_train_val,
+        X_train_val, Y_train_val,
         batch_size,
         self_sup=False
     )
     optimizer_sup = optim.Adam(model.parameters(), lr=lr_supervised)
-    scheduler_sup = optim.lr_scheduler.ReduceLROnPlateau(optimizer_sup, 'min', patience=3, factor=0.5)
+    scheduler_sup = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer_sup, 'min', patience=3, factor=0.5
+    )
 
     train_loss_sup, val_loss_sup = train_phase(
         model, 
@@ -452,7 +464,7 @@ def train_full_with_params(
         optimizer_sup, 
         scheduler_sup, 
         train_loader, 
-        train_loader,  # if you still want to do early stop with train_loader as val
+        train_loader,  # If you want to do early stop with the same data
         device, 
         early_stop_patience, 
         eval_frequency, 
@@ -461,20 +473,27 @@ def train_full_with_params(
     )
     phase_history["supervised"] = (train_loss_sup, val_loss_sup)
     
-    # ====== 3) (Optional) Individualized Fine-Tuning ======
+    # -------------------------------------------------------------------------
+    # 3) (Optional) Individualized Fine-Tuning
+    # -------------------------------------------------------------------------
+    # If individualized_finetuning == True, we do per-patient fine-tuning,
+    # then evaluate on each patient's test set with bootstrapping, store results.
+    # -------------------------------------------------------------------------
+    experiment_folder = EXPERIMENT_FOLDER_DICT.get(baseline, "unknown_experiment")
+    save_dir = os.path.join("results", experiment_folder)
+    os.makedirs(save_dir, exist_ok=True)
+
     if individualized_finetuning:
-        # If multipatient = True + individualized_finetuning, we do
-        # per-patient fine-tuning. We'll do it across all patients in the test set.
-        # Or if single patient, it's just that one patient.
+        # We’ll keep a record of the test losses & bootstrap intervals for each patient
+        finetune_results = {}  # patient_id => { 'test_loss': ..., 'mean_boot': ..., 'ci_lower': ..., 'ci_upper': ... }
+
+        # If multiple patients: X_train_val likely contains multiple IDs
         patients_in_data = X_train_val["DeidentID"].unique()
-        # We'll store a dictionary of final losses if we want
-        final_losses = {}
         
         for pid in patients_in_data:
             phase_history["finetuning"][pid] = None
-            # Clone the model so we don't overwrite the global version
-            model_clone = deepcopy(model)
-            # Pull data for this single patient from train+val
+            model_clone = deepcopy(model)  # clone to avoid overwriting
+            # Per-patient data
             X_train_val_pid = X_train_val[X_train_val["DeidentID"] == pid]
             Y_train_val_pid = Y_train_val[X_train_val["DeidentID"] == pid]
 
@@ -486,15 +505,18 @@ def train_full_with_params(
             )
 
             optimizer_fine = optim.Adam(model_clone.parameters(), lr=lr_finetune)
-            scheduler_fine = optim.lr_scheduler.ReduceLROnPlateau(optimizer_fine, 'min', patience=2, factor=0.5)
+            scheduler_fine = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer_fine, 'min', patience=2, factor=0.5
+            )
             
+            # Collect fine-tuning losses
             train_loss_ft, val_loss_ft = train_phase(
                 model_clone,
                 criterion,
                 optimizer_fine,
                 scheduler_fine,
                 train_loader_pid,
-                train_loader_pid,
+                train_loader_pid,   # can reuse same set for "val" if desired
                 device,
                 early_stop_patience,
                 eval_frequency,
@@ -507,76 +529,77 @@ def train_full_with_params(
             X_test_pid = X_test[X_test["DeidentID"] == pid]
             Y_test_pid = Y_test[X_test["DeidentID"] == pid]
 
-            # Make predictions
             if len(X_test_pid) == 0:
+                # Possibly the patient doesn't exist in the test set.
                 continue
+
             model_clone.eval()
             with torch.no_grad():
                 X_test_pid_copy = X_test_pid.drop(columns=["DeidentID"]).values
-                X_test_pid_tensor = torch.tensor(X_test_pid_copy, dtype=torch.float32).reshape(-1,1, X_test_pid_copy.shape[1]).to(device)
+                X_test_pid_tensor = torch.tensor(
+                    X_test_pid_copy, dtype=torch.float32
+                ).reshape(-1,1,X_test_pid_copy.shape[1]).to(device)
                 preds_pid = model_clone(X_test_pid_tensor).cpu().numpy().flatten()
             
             # Compute the test loss
+            true_pid = Y_test_pid.drop(columns=["DeidentID"]).values.flatten()
             test_loss_pid = gMSE(
-                torch.tensor(Y_test_pid.drop(columns=["DeidentID"]).values, dtype=torch.float32),
+                torch.tensor(true_pid, dtype=torch.float32),
                 torch.tensor(preds_pid, dtype=torch.float32)
             ).item()
-            final_losses[pid] = test_loss_pid
 
-        print("Per-Patient Fine-Tuning Losses:", final_losses)
-        # If you want a single summary metric, you could do:
-        avg_loss = np.mean(list(final_losses.values()))
-        print(f"Average Test Loss across all patients (fine-tuned): {avg_loss:.4f}")
+            # Now do bootstrapping
+            mean_boot, ci_lower, ci_upper = bootstrap_loss(
+                true_pid, 
+                preds_pid, 
+                gMSE, 
+                n_boot=1000, 
+                confidence=0.95
+            )
 
-        # Return or print final losses
-        # TODO: bootstrapping and so on for final_model
-        return
-    
-        # ========== Save Plots of Each Phase's Losses ==========
-    # We'll put them in "results/<experiment_folder>/" 
-    experiment_folder = EXPERIMENT_FOLDER_DICT.get(baseline, "unknown_experiment")
-    save_dir = os.path.join("results", experiment_folder)
-    os.makedirs(save_dir, exist_ok=True)
+            finetune_results[pid] = {
+                'test_loss':  test_loss_pid,
+                'mean_boot':  mean_boot,
+                'ci_lower':   ci_lower,
+                'ci_upper':   ci_upper
+            }
 
-    # If single-patient, we might suffix filenames with the patient ID.
-    pid_str = f"_patient_{patient_id}" if patient_id else "_multipatient"
+        # Optionally compute aggregated metrics across all patients
+        # e.g., average test_loss, average mean_boot, etc.
+        all_test_losses = [v['test_loss'] for v in finetune_results.values()]
+        avg_loss = np.mean(all_test_losses) if len(all_test_losses) > 0 else None
 
-    # -- Plot Self-Supervised + Supervised in ONE figure (if needed) --
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-    fig.suptitle(f"Loss Curves{pid_str}")
+        all_mean_boot = [v['mean_boot'] for v in finetune_results.values()]
+        avg_mean_boot = np.mean(all_mean_boot) if len(all_mean_boot) > 0 else None
 
-    # Left subplot: self-supervised (if it happened)
-    if phase_history["self_supervised"] is not None:
-        (ss_train, ss_val) = phase_history["self_supervised"]
-        axes[0].plot(ss_train, label="SelfSup Train", marker='o')
-        axes[0].plot(ss_val, label="SelfSup Val", marker='x')
-        axes[0].set_title("Self-Supervised Phase")
-        axes[0].legend()
-    else:
-        axes[0].set_title("No Self-Supervised Phase")
+        # ---- Save Results to a TXT File ----
+        txt_filename = "finetuning_test_results.txt"
+        txt_path = os.path.join(save_dir, txt_filename)
 
-    # Right subplot: supervised
-    (sup_train, sup_val) = phase_history["supervised"]
-    axes[1].plot(sup_train, label="Supervised Train", marker='o')
-    axes[1].plot(sup_val,   label="Supervised Val", marker='x')
-    axes[1].set_title("Supervised Phase")
-    axes[1].legend()
+        with open(txt_path, "w") as f:
+            f.write("=== Per-Patient Fine-Tuning Test Results ===\n")
+            for pid, metrics in finetune_results.items():
+                f.write(f"Patient {pid}:\n")
+                f.write(f"  Test Loss: {metrics['test_loss']:.4f}\n")
+                f.write(f"  Bootstrapped Mean Loss: {metrics['mean_boot']:.4f}\n")
+                f.write(f"  95% CI: [{metrics['ci_lower']:.4f}, {metrics['ci_upper']:.4f}]\n\n")
 
-    for ax in axes:
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Loss")
-        ax.grid(True)
+            if avg_loss is not None:
+                f.write("=== Overall Averages ===\n")
+                f.write(f"Average Test Loss (fine-tuned): {avg_loss:.4f}\n")
+                f.write(f"Average Bootstrapped Mean Loss: {avg_mean_boot:.4f}\n")
 
-    plt.tight_layout()
-    plt.savefig(os.path.join(save_dir, f"training_phases{pid_str}.png"))
-    plt.close(fig)
+        print(f"[Fine-Tuning] Per-Patient test results saved to: {txt_path}")
 
-    # -- If fine-tuning was done, save plots per patient --
-    if individualized_finetuning:
+        # We can also optionally plot the fine-tuning curves here (already done below).
+        # We will return to exit the function (since we've done per-patient evaluation):
+        # but first, let's save the fine-tuning plots.
+
+        # -- If fine-tuning was done, save plots per patient --
+        pid_str = f"_patient_{patient_id}" if patient_id else "_multipatient"
         for pid, (ft_train, ft_val) in phase_history["finetuning"].items():
             if ft_train is None:
                 continue
-
             plt.figure(figsize=(6,4))
             plt.plot(ft_train, label="Fine-Tune Train", marker='o')
             plt.plot(ft_val,   label="Fine-Tune Val", marker='x')
@@ -589,32 +612,80 @@ def train_full_with_params(
             plt.savefig(os.path.join(save_dir, ft_plot_name))
             plt.close()
 
-    # ====== 4) Evaluate on Test Set + Bootstrap Confidence Interval ======
-    # Evaluate using the final model (non-fine-tuned or globally fine-tuned).
-    if individualized_finetuning:
-        return # We already did this above for each patient
+        return  # End of individualized_finetuning branch
+
+    # -------------------------------------------------------------------------
+    # If we reach here, it means no individualized_finetuning, so:
+    #   1) We do a single test set evaluation for the entire multi-patient model,
+    #      or for single-patient w/o fine-tuning.
+    #   2) We do normal bootstrapping, save results to file, etc.
+    # -------------------------------------------------------------------------
+
+    # ========== Save Plots (Self-Sup & Supervised) if no fine-tuning ==========
+
+    pid_str = f"_patient_{patient_id}" if patient_id else "_multipatient"
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig.suptitle(f"Loss Curves{pid_str}")
+
+    # Left subplot: self-supervised (if it happened)
+    if phase_history["self_supervised"] is not None:
+        (ss_train, ss_val) = phase_history["self_supervised"]
+        axes[0].plot(ss_train, label="SelfSup Train", marker='o')
+        axes[0].plot(ss_val,   label="SelfSup Val",   marker='x')
+        axes[0].set_title("Self-Supervised Phase")
+        axes[0].legend()
+    else:
+        axes[0].set_title("No Self-Supervised Phase")
+
+    # Right subplot: supervised
+    (sup_train, sup_val) = phase_history["supervised"]
+    axes[1].plot(sup_train, label="Supervised Train", marker='o')
+    axes[1].plot(sup_val,   label="Supervised Val",   marker='x')
+    axes[1].set_title("Supervised Phase")
+    axes[1].legend()
+
+    for ax in axes:
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel("Loss")
+        ax.grid(True)
+
+    plt.tight_layout()
+    plot_file = os.path.join(save_dir, f"training_phases{pid_str}.png")
+    plt.savefig(plot_file)
+    plt.close(fig)
+
+    # -------------------------------------------------------------------------
+    # 4) Evaluate on the Test Set + Bootstrap Confidence Interval
+    #    (No fine-tuning scenario)
+    # -------------------------------------------------------------------------
     model.eval()
     with torch.no_grad():
-        # Drop DeidentID from test for the actual model input
         X_test_copy = X_test.drop(columns=["DeidentID"]).values
-        # Shape => (batch, 1, input_length)
-        X_test_tensor = torch.tensor(X_test_copy, dtype=torch.float32).reshape(-1,1,X_test_copy.shape[1]).to(device)
+        X_test_tensor = torch.tensor(
+            X_test_copy, dtype=torch.float32
+        ).reshape(-1,1,X_test_copy.shape[1]).to(device)
         preds = model(X_test_tensor).cpu().numpy().flatten()
     
-    # Actual ground truth from Y_test
-    # The glucose column might be shaped (N,) or (N, 1). Just flatten as needed.
     Y_test_copy = Y_test.drop(columns=["DeidentID"]).values.flatten()
 
-    # Compute the test loss (gMSE)
+    # Compute test loss
     test_loss = gMSE(
         torch.tensor(Y_test_copy, dtype=torch.float32),
-        torch.tensor(preds, dtype=torch.float32)
+        torch.tensor(preds,       dtype=torch.float32)
     ).item()
 
-    # ----- BOOTSTRAP -----
-    mean_boot, ci_lower, ci_upper = bootstrap_loss(Y_test_copy, preds, gMSE, n_boot=1000, confidence=0.95)
+    mean_boot, ci_lower, ci_upper = bootstrap_loss(
+        Y_test_copy, preds, gMSE, n_boot=1000, confidence=0.95
+    )
 
-    # Identify the patient in logs if single-patient approach
-    pid_str = f"[Patient {patient_id}] " if patient_id else ""
-    print(f"{pid_str}Test loss: {test_loss:.4f}")
-    print(f"{pid_str}Bootstrap 95% CI: [{ci_lower:.4f}, {ci_upper:.4f}] (Mean bootstrapped loss: {mean_boot:.4f})")
+    # Instead of printing, let's save to a text file
+    txt_filename = f"test_results{pid_str}.txt"
+    txt_path = os.path.join(save_dir, txt_filename)
+    with open(txt_path, "w") as f:
+        f.write("=== Test Set Evaluation ===\n")
+        f.write(f"Test Loss (gMSE): {test_loss:.4f}\n")
+        f.write(f"Bootstrapped Mean Loss: {mean_boot:.4f}\n")
+        f.write(f"95% CI: [{ci_lower:.4f}, {ci_upper:.4f}]\n")
+
+    print(f"[No Fine-Tuning] Test results saved to: {txt_path}")
+    return
