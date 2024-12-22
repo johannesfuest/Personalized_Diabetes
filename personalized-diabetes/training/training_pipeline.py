@@ -7,9 +7,18 @@ import numpy as np
 import optuna
 from copy import deepcopy
 import time
+import matplotlib.pyplot as plt
+import os
 from model import GlucoseModel
 from gMSE import gMSE
 
+EXPERIMENT_FOLDER_DICT = {
+    1: "baseline_1",
+    2: "baseline_2",
+    3: "baseline_3",
+    4: "baseline_4",
+    5: "final_model"
+}
 
 class CustomDataset(Dataset):
     def __init__(self, X, Y=None, self_sup=False):
@@ -68,14 +77,20 @@ def train_phase(model,
                 device, 
                 early_stop_patience, 
                 eval_frequency, 
-                max_epochs):
+                max_epochs,
+                record_losses=False):
     """
     A generic training loop for one phase (self-supervised or supervised).
     Early stopping based on validation loss.
+    If record_losses=True, return (train_loss_history, val_loss_history).
+    Otherwise, just return the best_val_loss.
     """
     best_val_loss = float('inf')
     patience_counter = 0
-    best_model_state = deepcopy(model.state_dict())  # To handle the case of zero epochs
+    best_model_state = deepcopy(model.state_dict())
+
+    train_loss_history = []
+    val_loss_history = []
 
     for epoch in range(max_epochs):
         model.train()
@@ -93,9 +108,9 @@ def train_phase(model,
             optimizer.zero_grad()
             outputs = model(x_batch)
             if y_batch is not None:
-                loss = criterion(y_batch, outputs) 
+                loss = criterion(y_batch, outputs)
             else:
-                loss = criterion(outputs)  
+                loss = criterion(outputs)
             loss.backward()
             optimizer.step()
             
@@ -105,7 +120,6 @@ def train_phase(model,
             # Evaluate after some steps
             if (i+1) % eval_frequency == 0:
                 val_loss = evaluate(model, val_loader, criterion, device)
-                # Early stopping check
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
                     patience_counter = 0
@@ -113,15 +127,24 @@ def train_phase(model,
                 else:
                     patience_counter += 1
                     if patience_counter >= early_stop_patience:
-                        # Early stop
                         model.load_state_dict(best_model_state)
                         scheduler.step(val_loss)
-                        return best_val_loss
-                # Step the scheduler after validation
+                        # If we are recording losses, append the final epoch info
+                        if record_losses:
+                            epoch_train_loss = running_loss/steps if steps>0 else float('inf')
+                            train_loss_history.append(epoch_train_loss)
+                            val_loss_history.append(val_loss)
+                        return (train_loss_history, val_loss_history) if record_losses else best_val_loss
                 scheduler.step(val_loss)
 
-        # End of epoch validation
+        # End of epoch
+        epoch_train_loss = running_loss/steps if steps>0 else float('inf')
         val_loss = evaluate(model, val_loader, criterion, device)
+
+        if record_losses:
+            train_loss_history.append(epoch_train_loss)
+            val_loss_history.append(val_loss)
+
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             patience_counter = 0
@@ -131,11 +154,11 @@ def train_phase(model,
             if patience_counter >= early_stop_patience:
                 model.load_state_dict(best_model_state)
                 scheduler.step(val_loss)
-                return best_val_loss
+                return (train_loss_history, val_loss_history) if record_losses else best_val_loss
         scheduler.step(val_loss)
 
     model.load_state_dict(best_model_state)
-    return best_val_loss
+    return (train_loss_history, val_loss_history) if record_losses else best_val_loss
 
 
 def evaluate(model, val_loader, criterion, device):
@@ -321,7 +344,8 @@ def train_full_with_params(
     X_test_self, Y_test_self,
     self_sup,
     individualized_finetuning,
-    patient_id=None
+    patient_id=None,
+    
 ):
     """
     Given the best hyperparameters, trains a fresh model from scratch
@@ -372,6 +396,11 @@ def train_full_with_params(
                          self_sup=self_sup, 
                          fixed_hyperparameters=fixed_hyperparameters).to(device)
     criterion = gMSE
+    phase_history = {
+        "self_supervised": None,
+        "supervised": None,
+        "finetuning": {}
+    }
 
     # ====== 1) (Optional) Self-Supervised Phase ======
     if self_sup and (X_train_self is not None) and (Y_train_self is not None) \
@@ -387,7 +416,7 @@ def train_full_with_params(
         optimizer_ss = optim.Adam(model.parameters(), lr=lr_self_sup)
         scheduler_ss = optim.lr_scheduler.ReduceLROnPlateau(optimizer_ss, 'min', patience=2, factor=0.5)
 
-        train_phase(
+        train_loss_ss, val_loss_ss = train_phase(
             model, 
             criterion, 
             optimizer_ss, 
@@ -397,9 +426,11 @@ def train_full_with_params(
             device, 
             early_stop_patience, 
             eval_frequency, 
-            max_epochs=epochs_self_sup
+            max_epochs=epochs_self_sup,
+            record_losses=True
         )
-
+        phase_history["self_supervised"] = (train_loss_ss, val_loss_ss)
+        
         # Switch to supervised mode
         model.self_sup = False
         model.fc5 = nn.Linear(64, 1).to(device)
@@ -415,7 +446,7 @@ def train_full_with_params(
     optimizer_sup = optim.Adam(model.parameters(), lr=lr_supervised)
     scheduler_sup = optim.lr_scheduler.ReduceLROnPlateau(optimizer_sup, 'min', patience=3, factor=0.5)
 
-    train_phase(
+    train_loss_sup, val_loss_sup = train_phase(
         model, 
         criterion, 
         optimizer_sup, 
@@ -425,9 +456,11 @@ def train_full_with_params(
         device, 
         early_stop_patience, 
         eval_frequency, 
-        max_epochs=epochs_supervised
+        max_epochs=epochs_supervised,
+        record_losses=True
     )
-
+    phase_history["supervised"] = (train_loss_sup, val_loss_sup)
+    
     # ====== 3) (Optional) Individualized Fine-Tuning ======
     if individualized_finetuning:
         # If multipatient = True + individualized_finetuning, we do
@@ -438,6 +471,7 @@ def train_full_with_params(
         final_losses = {}
         
         for pid in patients_in_data:
+            phase_history["finetuning"][pid] = None
             # Clone the model so we don't overwrite the global version
             model_clone = deepcopy(model)
             # Pull data for this single patient from train+val
@@ -454,7 +488,7 @@ def train_full_with_params(
             optimizer_fine = optim.Adam(model_clone.parameters(), lr=lr_finetune)
             scheduler_fine = optim.lr_scheduler.ReduceLROnPlateau(optimizer_fine, 'min', patience=2, factor=0.5)
             
-            train_phase(
+            train_loss_ft, val_loss_ft = train_phase(
                 model_clone,
                 criterion,
                 optimizer_fine,
@@ -464,8 +498,11 @@ def train_full_with_params(
                 device,
                 early_stop_patience,
                 eval_frequency,
-                max_epochs=epochs_finetune
+                max_epochs=epochs_finetune,
+                record_losses=True
             )
+            phase_history["finetuning"][pid] = (train_loss_ft, val_loss_ft)
+            
             # Evaluate on the test set for just that patient
             X_test_pid = X_test[X_test["DeidentID"] == pid]
             Y_test_pid = Y_test[X_test["DeidentID"] == pid]
@@ -492,10 +529,70 @@ def train_full_with_params(
         print(f"Average Test Loss across all patients (fine-tuned): {avg_loss:.4f}")
 
         # Return or print final losses
+        # TODO: bootstrapping and so on for final_model
         return
+    
+        # ========== Save Plots of Each Phase's Losses ==========
+    # We'll put them in "results/<experiment_folder>/" 
+    experiment_folder = EXPERIMENT_FOLDER_DICT.get(baseline, "unknown_experiment")
+    save_dir = os.path.join("results", experiment_folder)
+    os.makedirs(save_dir, exist_ok=True)
+
+    # If single-patient, we might suffix filenames with the patient ID.
+    pid_str = f"_patient_{patient_id}" if patient_id else "_multipatient"
+
+    # -- Plot Self-Supervised + Supervised in ONE figure (if needed) --
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig.suptitle(f"Loss Curves{pid_str}")
+
+    # Left subplot: self-supervised (if it happened)
+    if phase_history["self_supervised"] is not None:
+        (ss_train, ss_val) = phase_history["self_supervised"]
+        axes[0].plot(ss_train, label="SelfSup Train", marker='o')
+        axes[0].plot(ss_val, label="SelfSup Val", marker='x')
+        axes[0].set_title("Self-Supervised Phase")
+        axes[0].legend()
+    else:
+        axes[0].set_title("No Self-Supervised Phase")
+
+    # Right subplot: supervised
+    (sup_train, sup_val) = phase_history["supervised"]
+    axes[1].plot(sup_train, label="Supervised Train", marker='o')
+    axes[1].plot(sup_val,   label="Supervised Val", marker='x')
+    axes[1].set_title("Supervised Phase")
+    axes[1].legend()
+
+    for ax in axes:
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel("Loss")
+        ax.grid(True)
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_dir, f"training_phases{pid_str}.png"))
+    plt.close(fig)
+
+    # -- If fine-tuning was done, save plots per patient --
+    if individualized_finetuning:
+        for pid, (ft_train, ft_val) in phase_history["finetuning"].items():
+            if ft_train is None:
+                continue
+
+            plt.figure(figsize=(6,4))
+            plt.plot(ft_train, label="Fine-Tune Train", marker='o')
+            plt.plot(ft_val,   label="Fine-Tune Val", marker='x')
+            plt.title(f"Fine-Tuning Loss (Patient {pid}){pid_str}")
+            plt.xlabel("Epoch")
+            plt.ylabel("Loss")
+            plt.legend()
+            plt.grid(True)
+            ft_plot_name = f"finetuning_curve_patient_{pid}.png"
+            plt.savefig(os.path.join(save_dir, ft_plot_name))
+            plt.close()
 
     # ====== 4) Evaluate on Test Set + Bootstrap Confidence Interval ======
     # Evaluate using the final model (non-fine-tuned or globally fine-tuned).
+    if individualized_finetuning:
+        return # We already did this above for each patient
     model.eval()
     with torch.no_grad():
         # Drop DeidentID from test for the actual model input

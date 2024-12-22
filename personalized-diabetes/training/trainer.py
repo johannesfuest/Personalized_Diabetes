@@ -10,6 +10,13 @@ patients_to_exclude = [1, 9, 10, 12, 16, 18, 19, 21, 22, 23, 24, 25, 26, 27, 29,
 patients = range(1, 31)
 patients = [p for p in patients if p not in patients_to_exclude]
 
+EXPERIMENT_FOLDER_DICT = {
+    1: "baseline_1",
+    2: "baseline_2",
+    3: "baseline_3",
+    4: "baseline_4",
+    5: "final_model"
+}
 
 def run_experiment(baseline: int, test: bool):
     
