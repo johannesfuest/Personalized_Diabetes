@@ -287,7 +287,7 @@ def run_optuna_study(
     X_test_self, Y_test_self,
     self_sup: bool,
     individualized_finetuning: bool,
-    n_trials: int = 10,
+    n_trials: int = 50,
     eval_frequency: int = 5,
     direction: str = "minimize",
 ):
@@ -335,6 +335,7 @@ def bootstrap_loss(y_true, y_pred, loss_fn, n_boot=1000, confidence=0.95):
     upper = np.percentile(boot_losses, (1.0 - (1.0 - confidence) / 2) * 100)
     return float(np.mean(boot_losses)), float(lower), float(upper)
 
+
 def train_full_with_params(
     best_params,
     X_train_val, Y_train_val,
@@ -345,7 +346,8 @@ def train_full_with_params(
     self_sup,
     individualized_finetuning,
     patient_id=None,
-    baseline=1,  # So we know which folder to save in
+    baseline=1, # So we know which folder to save in
+    missingness_modulo=1,
 ):
     """
     Given the best hyperparameters, trains a fresh model from scratch
@@ -573,7 +575,7 @@ def train_full_with_params(
         avg_mean_boot = np.mean(all_mean_boot) if len(all_mean_boot) > 0 else None
 
         # ---- Save Results to a TXT File ----
-        txt_filename = "finetuning_test_results.txt"
+        txt_filename = f"finetuning_test_results_m{missingness_modulo}.txt"
         txt_path = os.path.join(save_dir, txt_filename)
 
         with open(txt_path, "w") as f:
@@ -665,6 +667,7 @@ def train_full_with_params(
             X_test_copy, dtype=torch.float32
         ).reshape(-1,1,X_test_copy.shape[1]).to(device)
         preds = model(X_test_tensor).cpu().numpy().flatten()
+        
     
     Y_test_copy = Y_test.drop(columns=["DeidentID"]).values.flatten()
 
@@ -679,7 +682,7 @@ def train_full_with_params(
     )
 
     # Instead of printing, let's save to a text file
-    txt_filename = f"test_results{pid_str}.txt"
+    txt_filename = f"test_results{pid_str}_m{missingness_modulo}.txt"
     txt_path = os.path.join(save_dir, txt_filename)
     with open(txt_path, "w") as f:
         f.write("=== Test Set Evaluation ===\n")
@@ -688,4 +691,28 @@ def train_full_with_params(
         f.write(f"95% CI: [{ci_lower:.4f}, {ci_upper:.4f}]\n")
 
     print(f"[No Fine-Tuning] Test results saved to: {txt_path}")
+    
+    # -------------------------------------------------------------------------
+    # Save predictions to CSV for downstream analysis
+    # -------------------------------------------------------------------------
+    # 1) Create "preds" directory if it doesn't exist
+    preds_dir = os.path.join(save_dir, "preds")
+    os.makedirs(preds_dir, exist_ok=True)
+
+    # 2) Construct filename based on baseline, missingness_modulo, and patient_id
+    #    - If patient_id is None, we mimic 'D == 0' by *omitting* the '_D#' part
+    if patient_id is None:
+        csv_filename = f"base_{baseline}_test_M{missingness_modulo}.csv"
+    else:
+        csv_filename = f"base_{baseline}_test_M{missingness_modulo}_D{patient_id}.csv"
+
+    # 3) Save predictions (column "0") and actuals (column "1") for downstream usage
+    df_preds = pd.DataFrame({
+        "0": preds,
+        "1": Y_test_copy
+    })
+    csv_path = os.path.join(preds_dir, csv_filename)
+    df_preds.to_csv(csv_path, index=False)
+
+    print(f"[No Fine-Tuning] Test predictions saved to: {csv_path}")
     return

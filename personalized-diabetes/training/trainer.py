@@ -1,6 +1,6 @@
 import pandas as pd
 from training_pipeline import run_optuna_study, train_full_with_params
-from utils import get_train_test_split_across_patients, get_train_test_split_single_patient
+from utils import get_train_test_split_across_patients, get_train_test_split_single_patient, set_global_seed
 
 DATASET = "basic_0.csv"
 DATASET_SELF = "self_0.csv"
@@ -18,7 +18,9 @@ EXPERIMENT_FOLDER_DICT = {
     5: "final_model"
 }
 
-def run_experiment(baseline: int, test: bool):
+def run_experiment(baseline: int, test: bool, missing_modulo: int, offset: int, n_trials: int):
+    SEED = 0
+    set_global_seed(SEED)
     
     if baseline == 1:
         multipatient = True
@@ -58,10 +60,10 @@ def run_experiment(baseline: int, test: bool):
         df_self = df_self[df_self[['LocalDtTm', 'DeidentID']].apply(tuple, axis=1).isin(keys_in_basic)]
         
     if multipatient:
-        X_train, X_val, X_test, Y_train, Y_val, Y_test = get_train_test_split_across_patients(df_basic, 0.8, False)
+        X_train, X_val, X_test, Y_train, Y_val, Y_test = get_train_test_split_across_patients(df_basic, 0.8, False, missing_modulo, offset)
         
         if self_sup:
-            X_train_self, X_val_self, X_test_self, Y_train_self, Y_val_self, Y_test_self = get_train_test_split_across_patients(df_self, 0.8, True)
+            X_train_self, X_val_self, X_test_self, Y_train_self, Y_val_self, Y_test_self = get_train_test_split_across_patients(df_self, 0.8, True, missing_modulo, offset)
         else:
             X_train_self = None
             Y_train_self = None
@@ -69,7 +71,7 @@ def run_experiment(baseline: int, test: bool):
             Y_val_self = None
             X_test_self = None
             Y_test_self = None
-        study = run_optuna_study(X_train, Y_train, X_val, Y_val, X_test, Y_test, X_train_self, Y_train_self, X_val_self, Y_val_self, X_test_self, Y_test_self, self_sup, finetune)
+        study = run_optuna_study(X_train, Y_train, X_val, Y_val, X_test, Y_test, X_train_self, Y_train_self, X_val_self, Y_val_self, X_test_self, Y_test_self, self_sup, finetune, n_trials=n_trials)
         best_params = study.best_params
         print("Best hyperparameters found by Optuna:", best_params)
 
@@ -94,7 +96,9 @@ def run_experiment(baseline: int, test: bool):
             X_val_self,  Y_val_self,
             X_test_self, Y_test_self,
             self_sup, 
-            finetune
+            finetune,
+            baseline=baseline,
+            missingness_modulo=missing_modulo,
         )
         
     else:
@@ -104,9 +108,9 @@ def run_experiment(baseline: int, test: bool):
                 print(f"Skipping patient {patient} as they have no data")
                 continue
             df_self_patient = df_self[df_self["DeidentID"] == patient].copy()
-            X_train, X_val, X_test, Y_train, Y_val, Y_test = get_train_test_split_single_patient(df_patient, 0.8, False)
+            X_train, X_val, X_test, Y_train, Y_val, Y_test = get_train_test_split_single_patient(df_patient, 0.8, False, missing_modulo, offset)
             if self_sup:
-                X_train_self, X_val_self, X_test_self, Y_train_self, Y_val_self, Y_test_self = get_train_test_split_single_patient(df_self_patient, 0.8, self_sup)
+                X_train_self, X_val_self, X_test_self, Y_train_self, Y_val_self, Y_test_self = get_train_test_split_single_patient(df_self_patient, 0.8, self_sup, missing_modulo, offset)
             else:
                 X_train_self = None
                 Y_train_self = None
@@ -114,7 +118,7 @@ def run_experiment(baseline: int, test: bool):
                 Y_val_self = None
                 X_test_self = None
                 Y_test_self = None
-            study = run_optuna_study(X_train, Y_train, X_val, Y_val, X_test, Y_test, X_train_self, Y_train_self, X_val_self, Y_val_self, X_test_self, Y_test_self, self_sup, finetune)
+            study = run_optuna_study(X_train, Y_train, X_val, Y_val, X_test, Y_test, X_train_self, Y_train_self, X_val_self, Y_val_self, X_test_self, Y_test_self, self_sup, finetune, n_trials=n_trials)
             best_params = study.best_params
             print(f"Patient {patient} best params: {best_params}")
 
@@ -132,8 +136,15 @@ def run_experiment(baseline: int, test: bool):
                 X_test_self, Y_test_self,
                 self_sup,
                 finetune,
+                baseline=baseline,
+                missingness_modulo=missing_modulo,
                 patient_id=patient
             )
     
 if __name__ == "__main__":
-    run_experiment(1, True)
+    baselines = [1, 2, 3, 4, 5]
+    missing_modulos = [1, 10]
+    for baseline in baselines:
+        for missing_modulo in missing_modulos:
+            offset = 0
+            run_experiment(baseline, True, missing_modulo, offset, n_trials=5)
