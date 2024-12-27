@@ -4,7 +4,7 @@ from utils import get_train_test_split_across_patients, get_train_test_split_sin
 
 DATASET = "basic_0.csv"
 DATASET_SELF = "self_0.csv"
-missing_modulos = [10, 20, 50, 100, 200, 400, 800, 1000, 1500, 2000]
+missing_modulos = [1, 10, 20, 50, 100, 200, 400, 800, 1000, 1500, 2000]
 
 patients_to_exclude = [1, 9, 10, 12, 16, 18, 19, 21, 22, 23, 24, 25, 26, 27, 29, 30]
 patients = range(1, 31)
@@ -143,8 +143,7 @@ def run_experiment(baseline: int, test: bool, missing_modulo: int, offset: int, 
     
 if __name__ == "__main__":
     baselines = [1, 2, 3, 4, 5]
-    missing_modulos = [1, 10]
     for baseline in baselines:
         for missing_modulo in missing_modulos:
             offset = 0
-            run_experiment(baseline, True, missing_modulo, offset, n_trials=5)
+            run_experiment(baseline, False, missing_modulo, offset, n_trials=100)
