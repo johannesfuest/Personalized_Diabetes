@@ -189,6 +189,7 @@ def preprocess_data():
         df_smbg_shape_pre = df_MonitorSMBG.shape[0]
         df_meal_shape_pre = df_MonitorMeal.shape[0]
         df_system_shape_pre = df_MonitorSystem.shape[0]
+        df_MonitorCGM_shape_pre = df_MonitorCGM.shape[0]
         
         realistic_insulin_min = 0
         realistic_insulin_max = 1000
@@ -199,22 +200,32 @@ def preprocess_data():
         realistic_system_min = 0
         realistic_system_max = 100
         
+        realistic_cgm_min = 10
+        realistic_cgm_max = 600
+        
+        
         df_Insulin = df_Insulin[(df_Insulin["DeliveredValue"] >= realistic_insulin_min) & (df_Insulin["DeliveredValue"] <= realistic_insulin_max)]
         df_MonitorSMBG = df_MonitorSMBG[(df_MonitorSMBG["Carbs"] >= realistic_smbg_min) & (df_MonitorSMBG["Carbs"] <= realistic_smbg_max)]
         df_MonitorMeal = df_MonitorMeal[(df_MonitorMeal["MealSize"] >= realistic_meal_min) & (df_MonitorMeal["MealSize"] <= realistic_meal_max)]
         df_MonitorSystem = df_MonitorSystem[(df_MonitorSystem["Exercising"] >= realistic_system_min) & (df_MonitorSystem["Exercising"] <= realistic_system_max)]
+        df_MonitorCGM = df_MonitorCGM[(df_MonitorCGM["CGM"] >= realistic_cgm_min) & (df_MonitorCGM["CGM"] <= realistic_cgm_max)]
         df_insulin_shape_post = df_Insulin.shape[0]
         df_smbg_shape_post = df_MonitorSMBG.shape[0]
         df_meal_shape_post = df_MonitorMeal.shape[0]
         df_system_shape_post = df_MonitorSystem.shape[0]
+        df_MonitorCGM_shape_post = df_MonitorCGM.shape[0]
         
         f.write(f"Insulin shape before: {df_insulin_shape_pre}, after: {df_insulin_shape_post}\n")
         f.write(f"SMBG shape before: {df_smbg_shape_pre}, after: {df_smbg_shape_post}\n")
         f.write(f"Meal shape before: {df_meal_shape_pre}, after: {df_meal_shape_post}\n")
         f.write(f"System shape before: {df_system_shape_pre}, after: {df_system_shape_post}\n")
+        f.write(f"CGM shape before: {df_MonitorCGM_shape_pre}, after: {df_MonitorCGM_shape_post}\n")
         f.write("\n")
-        for df_ in [df_Insulin, df_MonitorSMBG, df_MonitorMeal, df_MonitorSystem]:
-            f.write(f"Description of {name}:\n")
+        
+        df_names = ["Insulin", "SMBG", "Meal", "System", "CGM"]
+        
+        for i, df_ in enumerate([df_Insulin, df_MonitorSMBG, df_MonitorMeal, df_MonitorSystem, df_MonitorCGM]):
+            f.write(f"Description of df_{df_names[i]}:\n")
             f.write(f"{df_.describe()}\n\n")
             f.write("\n")
         
@@ -222,13 +233,17 @@ def preprocess_data():
     basic_dfs = []
     self_sup_dfs = []
     
-    patients_to_exclude = [1, 9, 10, 12, 16, 18, 19, 21, 22, 23, 24, 25, 26, 27, 29, 30]
+    #patients_to_exclude = [1, 9, 10, 12, 16, 18, 19, 21, 22, 23, 24, 25, 26, 27, 29, 30]
     patients = range(1, 31)
-    patients = [p for p in patients if p not in patients_to_exclude]
+    #patients = [p for p in patients if p not in patients_to_exclude]
 
     for i in patients:
         # Filter by patient
         df_cgm_p = df_MonitorCGM[df_MonitorCGM["DeidentID"] == i].sort_values("LocalDtTm")
+        if df_cgm_p.shape[0] == 0:
+            with open("preprocessing_log.txt", "a") as f:
+                f.write(f"Patient {i} has no CGM data. Skipping...\n")
+            continue
         df_meal_p = df_MonitorMeal[df_MonitorMeal["DeidentID"] == i]
         df_smbg_p = df_MonitorSMBG[df_MonitorSMBG["DeidentID"] == i]
         df_system_p = df_MonitorSystem[df_MonitorSystem["DeidentID"] == i]
@@ -254,7 +269,12 @@ def preprocess_data():
         df_final_cgm = df_final["LocalDtTm"].progress_apply(lambda x: pd.Series(get_24_hour_bins(df_cgm_agg, x, "CGM")))
         df_final_cgm.columns = [f"cgm_{j}" for j in range(1, 289)]
         df_final["non_imputed_cgm_count"] = df_final_cgm.apply(lambda row: (row != 0).sum(), axis=1)
-
+        df_shape_pre = df_final.shape[0]        
+        df_final = df_final[df_final["non_imputed_cgm_count"] >= 288]
+        df_shape_post = df_final.shape[0]
+        with open("preprocessing_log.txt", "a") as f:
+            f.write(f"Dropped {df_shape_pre - df_shape_post} entries for Patient {i} with less than 288 non-imputed CGM values.\n")
+        df_final = df_final.drop(columns=["non_imputed_cgm_count"])
         # Add Insulin past 288 windows
         df_final_insulin = df_final["LocalDtTm"].progress_apply(lambda x: pd.Series(get_24_hour_bins(df_insulin_agg, x, "insulin")))
         df_final_insulin.columns = [f"insulin_{j}" for j in range(1, 289)]
@@ -282,8 +302,7 @@ def preprocess_data():
             f.write(f"Patient {i} final dataframe shape after dropping NAs: {df_final.shape}\n")
 
 
-        df_final = df_final[df_final["non_imputed_cgm_count"] >= 288]
-        df_final = df_final.drop(columns=["non_imputed_cgm_count"])
+        
         df_final_self = get_self_sup_df(df_final)
         df_final["DeidentID"] = i
         df_final_self["DeidentID"] = i
