@@ -201,7 +201,7 @@ def preprocess_data():
         realistic_system_max = 100
         
         realistic_cgm_min = 10
-        realistic_cgm_max = 600
+        realistic_cgm_max = 401
         
         
         df_Insulin = df_Insulin[(df_Insulin["DeliveredValue"] >= realistic_insulin_min) & (df_Insulin["DeliveredValue"] <= realistic_insulin_max)]
@@ -270,10 +270,11 @@ def preprocess_data():
         df_final_cgm.columns = [f"cgm_{j}" for j in range(1, 289)]
         df_final["non_imputed_cgm_count"] = df_final_cgm.apply(lambda row: (row != 0).sum(), axis=1)
         df_shape_pre = df_final.shape[0]        
-        df_final = df_final[df_final["non_imputed_cgm_count"] >= 275]
+        cgm_min = 280
+        df_final = df_final[df_final["non_imputed_cgm_count"] >= cgm_min]
         df_shape_post = df_final.shape[0]
         with open("preprocessing_log.txt", "a") as f:
-            f.write(f"Dropped {df_shape_pre - df_shape_post} entries for Patient {i} with less than 288 non-imputed CGM values.\n")
+            f.write(f"Dropped {df_shape_pre - df_shape_post} entries for Patient {i} with less than {cgm_min} non-imputed CGM values.\n")
         df_final = df_final.drop(columns=["non_imputed_cgm_count"])
         # Add Insulin past 288 windows
         df_final_insulin = df_final["LocalDtTm"].progress_apply(lambda x: pd.Series(get_24_hour_bins(df_insulin_agg, x, "insulin")))
