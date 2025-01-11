@@ -11,6 +11,10 @@ import matplotlib.pyplot as plt
 import os
 from model import GlucoseModel
 from gMSE import gMSE
+from training_pipeline import (
+    create_dataloaders, train_phase, evaluate,
+    bootstrap_loss, EXPERIMENT_FOLDER_DICT
+)
 
 EXPERIMENT_FOLDER_DICT = {
     1: "baseline_1",
@@ -200,7 +204,7 @@ def objective(trial,
     # Hyperparameters from Optuna
     lr_self_sup = trial.suggest_float("lr_self_sup", 1e-5, 1e-2, log=True)
     lr_supervised = trial.suggest_float("lr_supervised", 1e-5, 1e-2, log=True)
-    lr_finetune = trial.suggest_float("lr_finetune", 1e-6, 1e-3, log=True)
+    lr_finetune = trial.suggest_float("lr_finetune", 1e-8, 1e-2, log=True)
 
     dropout_rate = trial.suggest_float("dropout_rate", 0.0, 0.5)
     epochs_self_sup = trial.suggest_int("epochs_self_sup", 1, 20)
@@ -365,24 +369,7 @@ def train_full_with_params(
          saved before we exit the function.
     """
 
-    import os
-    import torch
-    import torch.nn as nn
-    import torch.optim as optim
-    import matplotlib.pyplot as plt
-    import numpy as np
-    import pandas as pd
-    from copy import deepcopy
-
-    from model import GlucoseModel
-    from gMSE import gMSE
-    from torch.utils.data import DataLoader
-    from training_pipeline import (
-        create_dataloaders, train_phase, evaluate,
-        bootstrap_loss, EXPERIMENT_FOLDER_DICT
-    )
-
-    # ------------------ DEVICE & HYPERPARAMS FROM BEST TRIAL ------------------
+        # ------------------ DEVICE & HYPERPARAMS FROM BEST TRIAL ------------------
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     lr_self_sup       = best_params["lr_self_sup"]
@@ -415,8 +402,7 @@ def train_full_with_params(
 
     # ---------------------- CREATE THE MODEL & CHECK INPUT ---------------------
     # Recall: input shape is (batch, 1, input_length).
-    # We do: (X_train_val.shape[1] - 1) / 4 because you said DeidentID is included in columns
-    # and each row is "flattened" timeseries data with length = 288*4 + 1 (?). 
+    # We do: (X_train_val.shape[1] - 1) / 4 because DeidentID is included in columns
     input_length = int((X_train_val.shape[1] - 1) / 4)
     assert input_length == 288, "Input length should be 288 for your architecture."
 
@@ -468,8 +454,6 @@ def train_full_with_params(
         model.fc5 = nn.Linear(64, 1).to(device)
 
     # ------------------------ 2) SUPERVISED PHASE (TRAIN+VAL) -----------------
-    # We'll do "training" on (train + val) data for the final supervised stage.
-    from training_pipeline import create_dataloaders
     train_loader, _ = create_dataloaders(
         X_train_val, Y_train_val,
         X_train_val, Y_train_val,
@@ -487,7 +471,7 @@ def train_full_with_params(
         optimizer_sup,
         scheduler_sup,
         train_loader,
-        train_loader,  # Use same data for 'val' if desired
+        train_loader,  # Use the same data for 'val' if desired
         device,
         early_stop_patience,
         eval_frequency,
@@ -497,7 +481,6 @@ def train_full_with_params(
     phase_history["supervised"] = (train_loss_sup, val_loss_sup)
 
     # --------------------- SAVE A SINGLE PLOT (PHASES 1 & 2) ------------------
-    # We do it here so it happens *exactly once*, before any fine-tuning loop
     experiment_folder = EXPERIMENT_FOLDER_DICT.get(baseline, "unknown_experiment")
     save_dir = os.path.join("results", experiment_folder)
     os.makedirs(save_dir, exist_ok=True)
@@ -536,20 +519,18 @@ def train_full_with_params(
     # --------------- 3) (OPTIONAL) INDIVIDUALIZED FINE-TUNING ----------------
     if individualized_finetuning:
         """
-        Per-patient fine-tuning. If you are multi-patient, we loop over each patient
-        in X_train_val, retrain a clone of the model for a few epochs, then evaluate
-        on that patient's test set. The code below is the same logic you had,
-        plus minor naming changes. We 'return' at the end to avoid duplicating
-        the test-set logic because with fine-tuning, we do that test set
-        evaluation per patient.
+        Per-patient fine-tuning. We loop over each patient in X_train_val,
+        retrain a clone of the model, then evaluate on that patient's test set.
+        Now also save predictions for each patient in a single CSV file.
         """
         finetune_results = {}
         patients_in_data = X_train_val["DeidentID"].unique()
+        all_finetune_preds = []  # Will store (DeidentID, pred, actual)
 
         for pid in patients_in_data:
             phase_history["finetuning"][pid] = None
 
-            model_clone = deepcopy(model)  # copy the trained model so each patient starts from same baseline
+            model_clone = deepcopy(model)
             X_train_val_pid = X_train_val[X_train_val["DeidentID"] == pid]
             Y_train_val_pid = Y_train_val[X_train_val["DeidentID"] == pid]
 
@@ -583,7 +564,6 @@ def train_full_with_params(
             # Evaluate on that patient's test set
             X_test_pid = X_test[X_test["DeidentID"] == pid]
             Y_test_pid = Y_test[X_test["DeidentID"] == pid]
-
             if len(X_test_pid) == 0:
                 continue
 
@@ -605,12 +585,17 @@ def train_full_with_params(
             mean_boot, ci_lower, ci_upper = bootstrap_loss(
                 true_pid, preds_pid, gMSE, n_boot=1000, confidence=0.95
             )
+
             finetune_results[pid] = {
                 "test_loss":  test_loss_pid,
                 "mean_boot":  mean_boot,
                 "ci_lower":   ci_lower,
                 "ci_upper":   ci_upper
             }
+
+            # Save these predictions so we can dump them all to CSV later
+            for pval, aval in zip(preds_pid, true_pid):
+                all_finetune_preds.append((pid, pval, aval))
 
         # You can average metrics across all patients if you want
         all_test_losses = [v["test_loss"] for v in finetune_results.values()]
@@ -633,6 +618,15 @@ def train_full_with_params(
 
         print(f"[Fine-Tuning] Results saved to: {txt_path}")
 
+        # Also save the predictions from *all* patients into a single CSV
+        df_all_preds = pd.DataFrame(all_finetune_preds, columns=["DeidentID", "pred", "actual"])
+        preds_dir = os.path.join(save_dir, "preds")
+        os.makedirs(preds_dir, exist_ok=True)
+        csv_filename = f"base_{baseline}_finetuned_preds_m{missingness_modulo}.csv"
+        csv_path = os.path.join(preds_dir, csv_filename)
+        df_all_preds.to_csv(csv_path, index=False)
+        print(f"[Fine-Tuning] Predictions saved to: {csv_path}")
+
         # Optionally plot the fine-tuning curves per patient
         for pid, (ft_train, ft_val) in phase_history["finetuning"].items():
             if ft_train is None:
@@ -652,50 +646,121 @@ def train_full_with_params(
         return  # End of the individualized_finetuning branch
 
     # ------------------- 4) EVALUATE ON TEST SET (NO FINE-TUNING) -------------
-    # If we reach here, there's no individualized fine-tuning. We do a single test set eval.
+    # If we reach here, there's no individualized fine-tuning. We might be in
+    # a multipatient scenario for baselines 1 or 2, or a single-patient scenario
+    # for baselines 3 or 4.
+    if baseline in [1, 2]:
+        # --- Multi-patient per-patient evaluation ---
+        patients_in_test = X_test["DeidentID"].unique()
+        results_per_patient = {}
+        all_preds = []  # store (DeidentID, pred, actual) for each patient
 
-    # Evaluate model on the entire test set
-    model.eval()
-    with torch.no_grad():
-        X_test_copy = X_test.drop(columns=["DeidentID"]).values
-        X_test_tensor = torch.tensor(
-            X_test_copy, dtype=torch.float32
-        ).reshape(-1, 1, X_test_copy.shape[1]).to(device)
-        preds = model(X_test_tensor).cpu().numpy().flatten()
+        model.eval()
+        for pid in patients_in_test:
+            X_test_pid = X_test[X_test["DeidentID"] == pid]
+            Y_test_pid = Y_test[X_test["DeidentID"] == pid]
+            if len(X_test_pid) == 0:
+                continue
 
-    Y_test_copy = Y_test.drop(columns=["DeidentID"]).values.flatten()
-    test_loss = gMSE(
-        torch.tensor(Y_test_copy, dtype=torch.float32),
-        torch.tensor(preds,       dtype=torch.float32)
-    ).item()
+            X_test_pid_copy = X_test_pid.drop(columns=["DeidentID"]).values
+            true_pid = Y_test_pid.drop(columns=["DeidentID"]).values.flatten()
 
-    mean_boot, ci_lower, ci_upper = bootstrap_loss(
-        Y_test_copy, preds, gMSE, n_boot=1000, confidence=0.95
-    )
+            with torch.no_grad():
+                X_test_pid_tensor = torch.tensor(
+                    X_test_pid_copy, dtype=torch.float32
+                ).reshape(-1, 1, X_test_pid_copy.shape[1]).to(device)
+                preds_pid = model(X_test_pid_tensor).cpu().numpy().flatten()
 
-    # Write final results to a text file
-    txt_filename = f"test_results{pid_str}_m{missingness_modulo}.txt"
-    txt_path = os.path.join(save_dir, txt_filename)
-    with open(txt_path, "w") as f:
-        f.write("=== Test Set Evaluation ===\n")
-        f.write(f"Test Loss (gMSE): {test_loss:.4f}\n")
-        f.write(f"Bootstrapped Mean Loss: {mean_boot:.4f}\n")
-        f.write(f"95% CI: [{ci_lower:.4f}, {ci_upper:.4f}]\n")
+            test_loss_pid = gMSE(
+                torch.tensor(true_pid, dtype=torch.float32),
+                torch.tensor(preds_pid, dtype=torch.float32)
+            ).item()
 
-    print(f"[No Fine-Tuning] Test results saved to: {txt_path}")
+            mean_boot, ci_lower, ci_upper = bootstrap_loss(
+                true_pid, preds_pid, gMSE, n_boot=1000, confidence=0.95
+            )
 
-    # Optionally also save predictions for further analysis
-    preds_dir = os.path.join(save_dir, "preds")
-    os.makedirs(preds_dir, exist_ok=True)
-    if patient_id is None:
-        csv_filename = f"base_{baseline}_test_M{missingness_modulo}.csv"
+            results_per_patient[pid] = {
+                "test_loss":  test_loss_pid,
+                "mean_boot":  mean_boot,
+                "ci_lower":   ci_lower,
+                "ci_upper":   ci_upper
+            }
+            # Collect predictions for CSV
+            for pval, aval in zip(preds_pid, true_pid):
+                all_preds.append((pid, pval, aval))
+
+        # Write per-patient results
+        txt_filename = f"test_results_per_patient_m{missingness_modulo}.txt"
+        txt_path = os.path.join(save_dir, txt_filename)
+        with open(txt_path, "w") as f:
+            f.write("=== Per-Patient Test Results ===\n\n")
+            for pid, metrics in results_per_patient.items():
+                f.write(f"Patient {pid}:\n")
+                f.write(f"  Test Loss (gMSE): {metrics['test_loss']:.4f}\n")
+                f.write(f"  Bootstrapped Mean Loss: {metrics['mean_boot']:.4f}\n")
+                f.write(f"  95% CI: [{metrics['ci_lower']:.4f}, {metrics['ci_upper']:.4f}]\n\n")
+
+        print(f"[No Fine-Tuning, Baseline={baseline}] Per-patient results saved to: {txt_path}")
+
+        # Also save predictions for all patients in a single CSV
+        preds_dir = os.path.join(save_dir, "preds")
+        os.makedirs(preds_dir, exist_ok=True)
+        if patient_id is None:
+            csv_filename = f"base_{baseline}_test_M{missingness_modulo}_all_preds.csv"
+        else:
+            csv_filename = f"base_{baseline}_test_M{missingness_modulo}_D{patient_id}_all_preds.csv"
+
+        df_preds = pd.DataFrame(all_preds, columns=["DeidentID", "pred", "actual"])
+        csv_path = os.path.join(preds_dir, csv_filename)
+        df_preds.to_csv(csv_path, index=False)
+        print(f"[No Fine-Tuning, Baseline={baseline}] Predictions saved to: {csv_path}")
+
+        return
+
     else:
-        csv_filename = f"base_{baseline}_test_M{missingness_modulo}_D{patient_id}.csv"
+        # --- Single-patient or baseline 3/4 scenario (or anything else) ---
+        model.eval()
+        with torch.no_grad():
+            X_test_copy = X_test.drop(columns=["DeidentID"]).values
+            X_test_tensor = torch.tensor(
+                X_test_copy, dtype=torch.float32
+            ).reshape(-1, 1, X_test_copy.shape[1]).to(device)
+            preds = model(X_test_tensor).cpu().numpy().flatten()
 
-    df_preds = pd.DataFrame({"pred": preds, "actual": Y_test_copy})
-    csv_path = os.path.join(preds_dir, csv_filename)
-    df_preds.to_csv(csv_path, index=False)
+        Y_test_copy = Y_test.drop(columns=["DeidentID"]).values.flatten()
+        test_loss = gMSE(
+            torch.tensor(Y_test_copy, dtype=torch.float32),
+            torch.tensor(preds,       dtype=torch.float32)
+        ).item()
 
-    print(f"[No Fine-Tuning] Predictions saved to: {csv_path}")
-    return
+        mean_boot, ci_lower, ci_upper = bootstrap_loss(
+            Y_test_copy, preds, gMSE, n_boot=1000, confidence=0.95
+        )
+
+        # Write final results to a text file
+        txt_filename = f"test_results{pid_str}_m{missingness_modulo}.txt"
+        txt_path = os.path.join(save_dir, txt_filename)
+        with open(txt_path, "w") as f:
+            f.write("=== Test Set Evaluation ===\n")
+            f.write(f"Test Loss (gMSE): {test_loss:.4f}\n")
+            f.write(f"Bootstrapped Mean Loss: {mean_boot:.4f}\n")
+            f.write(f"95% CI: [{ci_lower:.4f}, {ci_upper:.4f}]\n")
+
+        print(f"[No Fine-Tuning, Baseline={baseline}] Test results saved to: {txt_path}")
+
+        # Optionally also save predictions for further analysis
+        preds_dir = os.path.join(save_dir, "preds")
+        os.makedirs(preds_dir, exist_ok=True)
+        if patient_id is None:
+            csv_filename = f"base_{baseline}_test_M{missingness_modulo}.csv"
+        else:
+            csv_filename = f"base_{baseline}_test_M{missingness_modulo}_D{patient_id}.csv"
+
+        df_preds = pd.DataFrame({"pred": preds, "actual": Y_test_copy})
+        csv_path = os.path.join(preds_dir, csv_filename)
+        df_preds.to_csv(csv_path, index=False)
+
+        print(f"[No Fine-Tuning, Baseline={baseline}] Predictions saved to: {csv_path}")
+        return
 
