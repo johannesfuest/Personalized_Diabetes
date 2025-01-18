@@ -292,7 +292,7 @@ def run_optuna_study(
     n_trials: int = 50,
     eval_frequency: int = 5,
     direction: str = "minimize",
-    missingness_modulo: int = 1
+    missingness_modulo: int = 1,
 ):
     """
     Runs an Optuna study using the provided train/val/test sets.

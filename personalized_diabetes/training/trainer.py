@@ -71,7 +71,7 @@ def run_experiment(baseline: int, test: bool, missing_modulo: int, offset: int, 
             Y_val_self = None
             X_test_self = None
             Y_test_self = None
-        study = run_optuna_study(X_train, Y_train, X_val, Y_val, X_test, Y_test, X_train_self, Y_train_self, X_val_self, Y_val_self, X_test_self, Y_test_self, self_sup, finetune, n_trials=n_trials, missing_modulo=missing_modulo)
+        study = run_optuna_study(X_train, Y_train, X_val, Y_val, X_test, Y_test, X_train_self, Y_train_self, X_val_self, Y_val_self, X_test_self, Y_test_self, self_sup, finetune, n_trials=n_trials, missingness_modulo=missing_modulo)
         best_params = study.best_params
         print("Best hyperparameters found by Optuna:", best_params)
 
@@ -130,7 +130,7 @@ def run_experiment(baseline: int, test: bool, missing_modulo: int, offset: int, 
                 Y_val_self = None
                 X_test_self = None
                 Y_test_self = None
-            study = run_optuna_study(X_train, Y_train, X_val, Y_val, X_test, Y_test, X_train_self, Y_train_self, X_val_self, Y_val_self, X_test_self, Y_test_self, self_sup, finetune, n_trials=n_trials, missing_modulo=missing_modulo)
+            study = run_optuna_study(X_train, Y_train, X_val, Y_val, X_test, Y_test, X_train_self, Y_train_self, X_val_self, Y_val_self, X_test_self, Y_test_self, self_sup, finetune, n_trials=n_trials, missingness_modulo=missing_modulo)
             best_params = study.best_params
             print(f"Patient {patient} best params: {best_params}")
 
