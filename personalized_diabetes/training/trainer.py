@@ -139,14 +139,18 @@ def run_experiment(baseline: int, test: bool, missing_modulo: int, offset: int, 
             # Retrain using (train + val) and adjust the length of the train set to match the original train set
             X_train_val = pd.concat([X_train, X_val])
             Y_train_val = pd.concat([Y_train, Y_val])
+            if self_sup:
+                X_train_val_self = pd.concat([X_train_self, X_val_self])
+                Y_train_val_self = pd.concat([Y_train_self, Y_val_self])
             len_train = X_train.shape[0]
             len_val_train = X_train_val.shape[0]
             X_train_val = X_train_val.iloc[len_val_train - len_train:]
             Y_train_val = Y_train_val.iloc[len_val_train - len_train:]
-            len_train_self = X_train_self.shape[0]
-            len_val_train_self = X_train_val_self.shape[0]
-            X_train_val_self = X_train_val_self.iloc[len_val_train_self - len_train_self:]
-            Y_train_val_self = Y_train_val_self.iloc[len_val_train_self - len_train_self]
+            if self_sup:
+                len_train_self = X_train_self.shape[0]
+                len_val_train_self = X_train_val_self.shape[0]
+                X_train_val_self = X_train_val_self.iloc[len_val_train_self - len_train_self:]
+                Y_train_val_self = Y_train_val_self.iloc[len_val_train_self - len_train_self]
 
             print(f"\nRetraining model for Patient {patient} with best hyperparams...\n")
             train_full_with_params(

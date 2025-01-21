@@ -462,7 +462,7 @@ def train_full_with_params(
     )
     optimizer_sup = optim.Adam(model.parameters(), lr=lr_supervised)
     scheduler_sup = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer_sup, 'min', patience=5, factor=2
+        optimizer_sup, 'min', patience=5, factor=0.2
     )
 
     train_loss_sup, val_loss_sup = train_phase(
