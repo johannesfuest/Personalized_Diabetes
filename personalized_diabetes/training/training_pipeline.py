@@ -96,7 +96,6 @@ def train_phase(model,
         model.train()
         running_loss = 0.0
         steps = 0
-        
         for i, batch in enumerate(train_loader):
             if len(batch) == 2:
                 x_batch, y_batch = batch
@@ -208,7 +207,9 @@ def objective(trial,
     epochs_self_sup = trial.suggest_int("epochs_self_sup", 1, 20)
     epochs_supervised = trial.suggest_int("epochs_supervised", 1, 20*missingness_modulo)
     epochs_finetune = trial.suggest_int("epochs_finetune", 1, 20*missingness_modulo)
-    early_stop_patience = trial.suggest_int("early_stop_patience", 1, 10)
+    early_stop_patience_self_sup = trial.suggest_int("early_stop_patience", 1, 10)
+    early_stop_patience_sup = trial.suggest_int("early_stop_patience", 1, 10)
+    early_stop_patience_finetune = trial.suggest_int("early_stop_patience", 1, 10)
     batch_size = 64
 
     # Fixed hyperparameters for convolutional layers
@@ -240,7 +241,7 @@ def objective(trial,
         scheduler_ss = optim.lr_scheduler.ReduceLROnPlateau(optimizer_ss, 'min', patience=2, factor=0.5)
 
         best_val_loss_ss = train_phase(model, criterion, optimizer_ss, scheduler_ss, train_loader_ss, val_loader_ss,
-                                       device, early_stop_patience, eval_frequency, epochs_self_sup)
+                                       device, early_stop_patience_self_sup, eval_frequency, epochs_self_sup)
         # After self-supervised training, switch to supervised mode
         model.self_sup = False
         model.fc5 = nn.Linear(64, 1).to(device)
@@ -254,7 +255,7 @@ def objective(trial,
     scheduler_sup = optim.lr_scheduler.ReduceLROnPlateau(optimizer_sup, 'min', patience=5, factor=0.2)
 
     best_val_loss_sup = train_phase(model, criterion, optimizer_sup, scheduler_sup, train_loader, val_loader,
-                                    device, early_stop_patience, eval_frequency, epochs_supervised)
+                                    device, early_stop_patience_sup, eval_frequency, epochs_supervised)
 
     # ============= Individualized Fine-Tuning (Optional) =============
     if individualized_finetuning:
@@ -268,10 +269,10 @@ def objective(trial,
             
             train_loader_patient, val_loader_patient = create_dataloaders(X_train_patient, Y_train_patient, X_val_patient, Y_val_patient, batch_size, self_sup=False)
             optimizer_finetune = optim.Adam(model_clone.parameters(), lr=lr_finetune)
-            scheduler_finetune = optim.lr_scheduler.ReduceLROnPlateau(optimizer_finetune, 'min', patience=5, factor=0.2)
-            
+            scheduler_finetune = optim.lr_scheduler.ReduceLROnPlateau(optimizer_finetune, 'min', patience=3, factor=0.1)
+            eval_frequency = int(min(2000 / missingness_modulo, 5))
             best_val_loss_finetune = train_phase(model_clone, criterion, optimizer_finetune, scheduler_finetune, train_loader_patient, val_loader_patient,
-                                                device, early_stop_patience, eval_frequency, epochs_finetune)
+                                                device, early_stop_patience_finetune, eval_frequency, epochs_finetune)
             
             final_metrics.append(best_val_loss_finetune)
         final_metric = np.mean(final_metrics)
@@ -543,7 +544,7 @@ def train_full_with_params(
 
             optimizer_fine = optim.Adam(model_clone.parameters(), lr=lr_finetune)
             scheduler_fine = optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer_fine, 'min', patience=5, factor=0.2
+                optimizer_fine, 'min', patience=1, factor=0.2
             )
 
             train_loss_ft, val_loss_ft = train_phase(
@@ -554,8 +555,8 @@ def train_full_with_params(
                 train_loader_pid,
                 train_loader_pid,  # if you're reusing same data for val
                 device,
-                early_stop_patience,
-                eval_frequency,
+                2,
+                1,
                 max_epochs=epochs_finetune,
                 record_losses=True
             )

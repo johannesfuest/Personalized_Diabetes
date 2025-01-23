@@ -1,6 +1,8 @@
 import pandas as pd
 from training_pipeline import run_optuna_study, train_full_with_params
 from utils import get_train_test_split_across_patients, get_train_test_split_single_patient, set_global_seed
+from time import time
+
 
 DATASET = "basic_0.csv"
 DATASET_SELF = "self_0.csv"
@@ -168,8 +170,11 @@ def run_experiment(baseline: int, test: bool, missing_modulo: int, offset: int, 
             )
     
 if __name__ == "__main__":
+    start_time = time()
     baselines = [1, 2, 3, 4, 5]
     for baseline in baselines:
         for missing_modulo in missing_modulos:
-            offset = 2
-            run_experiment(baseline, False, missing_modulo, offset, n_trials=20)
+            offset = 0
+            run_experiment(baseline, False, missing_modulo, offset, n_trials=50)
+    print(f"Total time taken: {time() - start_time} seconds")
+            
