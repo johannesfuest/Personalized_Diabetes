@@ -227,15 +227,13 @@ def objective(trial,
         "dropout_rate": dropout_rate
     }
 
-    # Assuming input length matches what was done previously
-    input_length = int((X_train.shape[1] - 1) / 4) # should be (batch, input_length) after reshape, -1 is due to patient id
+    input_length = int((X_train.shape[1] - 1) / 4)
     assert input_length == 288, "Input length should be 288"
     model = GlucoseModel(CONV_INPUT_LENGTH=input_length, self_sup=self_sup, fixed_hyperparameters=fixed_hyperparameters).to(device)
     criterion = gMSE
     patients = X_train["DeidentID"].unique().tolist()
     # ============= Self-Supervised Phase (Optional) =============
     if self_sup and X_train_self is not None and Y_train_self is not None and X_val_self is not None and Y_val_self is not None:
-        # Self-supervised training
         train_loader_ss, val_loader_ss = create_dataloaders(X_train_self, Y_train_self, X_val_self, Y_val_self, batch_size, self_sup=True)
         optimizer_ss = optim.Adam(model.parameters(), lr=lr_self_sup)
         scheduler_ss = optim.lr_scheduler.ReduceLROnPlateau(optimizer_ss, 'min', patience=2, factor=0.5)

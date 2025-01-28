@@ -136,4 +136,5 @@ class GlucoseModel(nn.Module):
             x = self.output_layer(x)
         else:
             x = self.fc5(x)
+            x = 30.0 + 371.0 * torch.sigmoid(x)
         return x
